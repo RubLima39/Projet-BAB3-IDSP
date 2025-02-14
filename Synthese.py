@@ -1,9 +1,8 @@
 import streamlit as st
 import numpy as np
 from scipy.signal import butter, lfilter
+import sounddevice as sd
 import matplotlib.pyplot as plt
-import io
-import scipy.io.wavfile as wav
 
 # Fonction pour générer des formes d'onde
 def generate_waveform(wave_type, frequency, duration, sample_rate=44100):
@@ -55,15 +54,6 @@ def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
 
     return signal * envelope
 
-# Fonction pour convertir un signal numpy en fichier WAV
-def numpy_to_wav(signal, sample_rate=44100):
-    # Convertir le signal numpy en un format compatible WAV
-    signal = np.int16(signal / np.max(np.abs(signal)) * 32767)  # Normalisation
-    buf = io.BytesIO()
-    wav.write(buf, sample_rate, signal)
-    buf.seek(0)
-    return buf
-
 # Application Streamlit
 st.title("Synthétiseur Subtractif Basique")
 
@@ -112,11 +102,9 @@ st.pyplot(fig)
 filtered_signal = butter_filter(lfo_signal, cutoff, filter_type=filter_type)
 adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release)
 
-# Convertir le signal en un fichier audio
-audio_file = numpy_to_wav(adsr_signal)
-
 # Lecture du son si demandé
 if st.button("Jouer le son"):
-    st.audio(audio_file, format="audio/wav")
+    sd.play(adsr_signal, 44100)
+    sd.wait()
 
 st.write("Ajuste les paramètres et clique sur 'Jouer le son' pour écouter.")
