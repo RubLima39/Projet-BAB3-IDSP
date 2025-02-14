@@ -1,6 +1,5 @@
 streamlit
 numpy
-scipy.signal.butter
-scipy.signal.lfilter
+scipy
 sounddevice
-matplotlib.pyplot
+matplotlib
