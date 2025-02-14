@@ -1,113 +1,110 @@
-import numpy as np
-import sounddevice as sd
 import streamlit as st
-import keyboard
-import threading
+import numpy as np
+from scipy.signal import butter, lfilter
+import sounddevice as sd
+import matplotlib.pyplot as plt
 
-# Fréquences des notes
-notes = {
-    "C": 261.63, "C#": 277.18, "D": 293.66, "D#": 311.13, "E": 329.63,
-    "F": 349.23, "F#": 369.99, "G": 392.00, "G#": 415.30, "A": 440.00,
-    "A#": 466.16, "B": 493.88, "C2": 523.25
-}
-
-# Mapping clavier -> note
-key_to_note = {
-    "a": "C", "w": "C#", "z": "D", "x": "D#", "e": "E",
-    "q": "F", "r": "F#", "s": "G", "t": "G#", "d": "A",
-    "y": "A#", "f": "B", "g": "C2"
-}
-
-# Liste des notes actuellement jouées
-active_notes = set()
-stream = None  # Flux audio
-
-# Générer l'onde sonore
-def generate_wave(frequencies, duration=1, sample_rate=44100):
+# Fonction pour générer des formes d'onde
+def generate_waveform(wave_type, frequency, duration, sample_rate=44100):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
-    wave = sum(0.5 * np.sin(2 * np.pi * f * t) for f in frequencies) / len(frequencies)
-    return wave.astype(np.float32)
-
-# Fonction qui génère du son en continu
-def audio_callback(outdata, frames, time, status):
-    if status:
-        print(status)
-    if active_notes:
-        wave = generate_wave([notes[n] for n in active_notes], duration=frames / 44100)
-        outdata[:] = np.expand_dims(wave, axis=1)
+    if wave_type == 'Sinus':
+        return np.sin(2 * np.pi * frequency * t)
+    elif wave_type == 'Triangle':
+        return 2 * np.abs(2 * (t * frequency % 1) - 1) - 1
+    elif wave_type == 'Dent de scie':
+        return 2 * (t * frequency % 1) - 1
+    elif wave_type == 'Carré':
+        return np.sign(np.sin(2 * np.pi * frequency * t))
     else:
-        outdata.fill(0)  # Silence si aucune note jouée
+        return np.zeros_like(t)
 
-# Démarrer la sortie audio
-def start_audio_stream():
-    global stream
-    if stream is None:
-        stream = sd.OutputStream(callback=audio_callback, samplerate=44100, channels=1)
-        stream.start()
+# LFO simple
+def apply_lfo(signal, rate, depth, sample_rate=44100):
+    t = np.linspace(0, len(signal) / sample_rate, len(signal), endpoint=False)
+    lfo = 1 + depth * np.sin(2 * np.pi * rate * t)
+    return signal * lfo
 
-# Gérer la pression et le relâchement des touches
-def listen_keyboard():
-    while True:
-        for key, note in key_to_note.items():
-            if keyboard.is_pressed(key):
-                active_notes.add(note)
-            else:
-                active_notes.discard(note)
+# Filtre basique
+def butter_filter(signal, cutoff, sample_rate=44100, filter_type='low', order=5):
+    nyquist = 0.5 * sample_rate
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype=filter_type, analog=False)
+    return lfilter(b, a, signal)
 
-# Interface Streamlit
-st.title("🎹 Piano Virtuel - Moog Box")
-st.write("Maintiens une touche du clavier ou clique sur une touche pour jouer en continu.")
+# Application de l'enveloppe ADSR
+def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
+    length = len(signal)
+    t = np.linspace(0, length / sample_rate, length, endpoint=False)
 
-# Interface visuelle du piano
-st.markdown("""
-<style>
-.piano {
-    display: flex;
-    justify-content: center;
-}
-.white-key, .black-key {
-    border: 2px solid black;
-    text-align: center;
-    font-size: 18px;
-    cursor: pointer;
-    user-select: none;
-}
-.white-key {
-    width: 60px;
-    height: 200px;
-    background: white;
-    color: black;
-}
-.black-key {
-    width: 40px;
-    height: 120px;
-    background: black;
-    color: white;
-    margin-left: -20px;
-    margin-right: -20px;
-    z-index: 1;
-}
-</style>
+    attack_samples = int(sample_rate * attack)
+    decay_samples = int(sample_rate * decay)
+    release_samples = int(sample_rate * release)
 
-<div class="piano">
-    <div class="white-key" onclick="play('C')">A (C)</div>
-    <div class="black-key" onclick="play('C#')">W (C#)</div>
-    <div class="white-key" onclick="play('D')">Z (D)</div>
-    <div class="black-key" onclick="play('D#')">X (D#)</div>
-    <div class="white-key" onclick="play('E')">E (E)</div>
-    <div class="white-key" onclick="play('F')">Q (F)</div>
-    <div class="black-key" onclick="play('F#')">R (F#)</div>
-    <div class="white-key" onclick="play('G')">S (G)</div>
-    <div class="black-key" onclick="play('G#')">T (G#)</div>
-    <div class="white-key" onclick="play('A')">D (A)</div>
-    <div class="black-key" onclick="play('A#')">Y (A#)</div>
-    <div class="white-key" onclick="play('B')">F (B)</div>
-    <div class="white-key" onclick="play('C2')">G (C2)</div>
-</div>
-""", unsafe_allow_html=True)
+    envelope = np.zeros(length)
 
-# Démarrer l'écoute clavier et le son
-if st.button("Activer le clavier 🎶"):
-    st.success("Maintiens une touche pour jouer en continu !")
-    start_audio_stream()
-    threading.Thread(target=listen_keyboard, daemon=True).start()
+    # Attack
+    envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+    # Decay
+    decay_end = attack_samples + decay_samples
+    envelope[attack_samples:decay_end] = np.linspace(1, sustain, decay_samples)
+    # Sustain
+    envelope[decay_end:length - release_samples] = sustain
+    # Release
+    envelope[length - release_samples:] = np.linspace(sustain, 0, release_samples)
+
+    return signal * envelope
+
+# Application Streamlit
+st.title("Synthétiseur Subtractif Basique")
+
+# Paramètres du VCO
+wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"])
+frequency = st.slider("Fréquence (Hz)", 20, 2000, 440)
+duration = st.slider("Durée (s)", 1, 5, 2)
+
+# Affichage graphique de la forme d'onde
+waveform = generate_waveform(wave_type, frequency, duration)
+fig, ax = plt.subplots()
+ax.plot(waveform[:1000])
+ax.set_title("Aperçu de la forme d'onde")
+st.pyplot(fig)
+
+# Paramètres des LFO
+lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0)
+lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5)
+
+# Affichage graphique du LFO
+lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth)
+fig, ax = plt.subplots()
+ax.plot(lfo_signal[:10000])
+ax.set_title("Aperçu du LFO")
+st.pyplot(fig)
+
+# Paramètres du filtre
+filter_type = st.selectbox("Type de filtre", ["low", "high"])
+cutoff = st.slider("Fréquence de coupure (Hz)", 20, 2000, 1000)
+
+# Paramètres de l'enveloppe ADSR
+attack = st.slider("Attack (s)", 0.01, 2.0, 0.1)
+decay = st.slider("Decay (s)", 0.01, 2.0, 0.1)
+sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7)
+release = st.slider("Release (s)", 0.01, 2.0, 0.2)
+
+# Affichage graphique de l'enveloppe ADSR
+t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
+adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
+fig, ax = plt.subplots()
+ax.plot(t[:1000000], adsr_envelope[:1000000])
+ax.set_title("Aperçu de l'enveloppe ADSR")
+st.pyplot(fig)
+
+# Générer le signal complet
+filtered_signal = butter_filter(lfo_signal, cutoff, filter_type=filter_type)
+adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release)
+
+# Lecture du son si demandé
+if st.button("Jouer le son"):
+    sd.play(adsr_signal, 44100)
+    sd.wait()
+
+st.write("Ajuste les paramètres et clique sur 'Jouer le son' pour écouter.")
