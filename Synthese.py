@@ -100,8 +100,9 @@ filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3)
 # Application du LFO sur la fréquence de coupure
 t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
 filter_lfo = cutoff * (1 + filter_lfo_depth * np.sin(2 * np.pi * filter_lfo_rate * t))
+
 # Application d'un filtre dynamique par blocs pour optimiser
-block_size = 1024
+block_size = 8
 filtered_signal = np.zeros_like(lfo_signal)
 for start in range(0, len(lfo_signal), block_size):
     end = min(start + block_size, len(lfo_signal))
