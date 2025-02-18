@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 from scipy.signal import butter, lfilter
 import matplotlib.pyplot as plt
-import io
 import scipy.io.wavfile as wav
 
 # Fonction pour générer des formes d'onde
