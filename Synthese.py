@@ -3,6 +3,7 @@ import numpy as np
 from scipy.signal import butter, lfilter
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
+import io
 
 # Fonction pour générer des formes d'onde
 def generate_waveform(wave_type, frequency, duration, sample_rate=44100):
