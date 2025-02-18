@@ -57,66 +57,78 @@ def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
 
 # Fonction pour convertir un signal numpy en fichier WAV
 def numpy_to_wav(signal, sample_rate=44100):
-    # Convertir le signal numpy en un format compatible WAV
-    signal = np.int16(signal / np.max(np.abs(signal)) * 32767)  # Normalisation
+    signal = np.int16(signal / np.max(np.abs(signal)) * 32767)
     buf = io.BytesIO()
     wav.write(buf, sample_rate, signal)
     buf.seek(0)
     return buf
 
 # Application Streamlit
-st.title("Synthétiseur Subtractif Basique")
+st.title("🎛️ Synthétiseur Subtractif")
 
-# Paramètres du VCO
+# Section VCO
+st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)")
 wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"])
 frequency = st.slider("Fréquence (Hz)", 20, 2000, 440)
-duration = st.slider("Durée (s)", 1, 5, 2)
+duration = st.slider("Durée (s)", 1, 6, 2)
 
-# Affichage graphique de la forme d'onde
 waveform = generate_waveform(wave_type, frequency, duration)
 fig, ax = plt.subplots()
-ax.plot(waveform[:1000])
+ax.plot(waveform[:1000], color='blue', label="Forme d'onde")
 ax.set_title("Aperçu de la forme d'onde")
 st.pyplot(fig)
 
-# Paramètres des LFO
+# Section trémolo
+st.subheader("🔄 LFO du Trémolo")
 lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0)
 lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5)
 
-# Affichage graphique du LFO
 lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth)
 fig, ax = plt.subplots()
-ax.plot(lfo_signal[:10000])
+ax.plot(lfo_signal[:20000], color='green', label='LFO')
 ax.set_title("Aperçu du LFO")
 st.pyplot(fig)
 
-# Paramètres du filtre
+# Section Filtre
+st.subheader("🎛️ Filtre")
 filter_type = st.selectbox("Type de filtre", ["low", "high"])
-cutoff = st.slider("Fréquence de coupure (Hz)", 20, 2000, 1000)
+cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
+# LFO pour le filtre
+st.subheader("🎚️ LFO du Filtre")
+filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0)
+filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3)
+# Application du LFO sur la fréquence de coupure
+t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
+filter_lfo = cutoff * (1 + filter_lfo_depth * np.sin(2 * np.pi * filter_lfo_rate * t))
+# Application d'un filtre dynamique par blocs pour optimiser
+block_size = 1024
+filtered_signal = np.zeros_like(lfo_signal)
+for start in range(0, len(lfo_signal), block_size):
+    end = min(start + block_size, len(lfo_signal))
+    current_cutoff = np.mean(filter_lfo[start:end])
+    filtered_signal[start:end] = butter_filter(lfo_signal[start:end], current_cutoff, filter_type=filter_type)
 
-# Paramètres de l'enveloppe ADSR
+# Section ADSR
+st.subheader("🎯 Enveloppe ADSR")
 attack = st.slider("Attack (s)", 0.01, 2.0, 0.1)
 decay = st.slider("Decay (s)", 0.01, 2.0, 0.1)
 sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7)
 release = st.slider("Release (s)", 0.01, 2.0, 0.2)
 
-# Affichage graphique de l'enveloppe ADSR
 t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
 adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
 fig, ax = plt.subplots()
-ax.plot(t[:1000000], adsr_envelope[:1000000])
+ax.plot(t[:300000], adsr_envelope[:300000], color='red', label='ADSR')
 ax.set_title("Aperçu de l'enveloppe ADSR")
+ax.legend()
 st.pyplot(fig)
 
-# Générer le signal complet
-filtered_signal = butter_filter(lfo_signal, cutoff, filter_type=filter_type)
+# Génération et lecture du signal final
 adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release)
 
-# Convertir le signal en un fichier audio
 audio_file = numpy_to_wav(adsr_signal)
 
-# Lecture du son si demandé
-if st.button("Jouer le son"):
+if st.button("▶️ Jouer le son"):
     st.audio(audio_file, format="audio/wav")
 
-st.write("Ajuste les paramètres et clique sur 'Jouer le son' pour écouter.")
+st.info("🎧 Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
