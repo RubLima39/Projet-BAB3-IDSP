@@ -63,6 +63,32 @@ def numpy_to_wav(signal, sample_rate=44100):
     buf.seek(0)
     return buf
 
+# Fonction d'oversampling et downsampling
+def oversample_downsample(signal, sample_rate, oversample_factor=4):
+    # Augmenter la fréquence d'échantillonnage
+    oversampled_signal = np.repeat(signal, oversample_factor)
+    
+    # Rééchantillonner à la fréquence d'échantillonnage d'origine
+    downsampled_signal = oversampled_signal[::oversample_factor]
+    
+    return downsampled_signal
+
+# Fonction pour appliquer le filtre avec LFO modulé sur la fréquence de coupure
+def apply_filter_after_oversampling(signal, filter_lfo, filter_type, sample_rate=44100, oversample_factor=10):
+    # Initialiser le tableau du signal filtré
+    filtered_signal = np.zeros_like(signal)
+    
+    # Appliquer le filtre à chaque tranche du signal
+    for i in range(0, len(signal), oversample_factor):
+        # Calculer la fréquence de coupure pour cette tranche
+        current_cutoff = filter_lfo[i]  # Prendre la fréquence de coupure correspondante pour cette tranche
+        
+        # Appliquer le filtre à la tranche avec la fréquence de coupure modifiée
+        filtered_signal[i:i + oversample_factor] = butter_filter(
+            signal[i:i + oversample_factor], current_cutoff, sample_rate, filter_type)
+    
+    return filtered_signal
+
 # Application Streamlit
 st.title("🎛️ Synthétiseur Subtractif")
 
@@ -93,21 +119,27 @@ st.pyplot(fig)
 st.subheader("🎛️ Filtre")
 filter_type = st.selectbox("Type de filtre", ["low", "high"])
 cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
-# LFO pour le filtre
-st.subheader("🎚️ LFO du Filtre")
+
+# Second LFO pour moduler le filtre
+def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, duration, sample_rate=44100):
+    t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+    # Créer le LFO pour moduler la fréquence de coupure
+    lfo = 1 + lfo_depth * np.sin(2 * np.pi * lfo_rate * t)
+    # Appliquer le LFO à chaque échantillon pour obtenir une série dynamique de valeurs de coupure
+    return cutoff * lfo
+
+# Utilisation du second LFO pour moduler le filtre
 filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0)
 filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3)
-# Application du LFO sur la fréquence de coupure
-t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
-filter_lfo = cutoff * (1 + filter_lfo_depth * np.sin(2 * np.pi * filter_lfo_rate * t))
 
-# Application d'un filtre dynamique par blocs pour optimiser
-block_size = 8
-filtered_signal = np.zeros_like(lfo_signal)
-for start in range(0, len(lfo_signal), block_size):
-    end = min(start + block_size, len(lfo_signal))
-    current_cutoff = np.mean(filter_lfo[start:end])
-    filtered_signal[start:end] = butter_filter(lfo_signal[start:end], current_cutoff, filter_type=filter_type)
+# Calcul du LFO pour moduler la fréquence de coupure
+filter_lfo = apply_filter_lfo(cutoff, filter_lfo_rate, filter_lfo_depth, duration)
+
+# Appliquer l'oversampling et downsampling
+oversample_factor = 20
+
+# Appliquer le filtre après oversampling
+filtered_signal = apply_filter_after_oversampling(lfo_signal, filter_lfo, filter_type)
 
 # Section ADSR
 st.subheader("🎯 Enveloppe ADSR")
