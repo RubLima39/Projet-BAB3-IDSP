@@ -25,7 +25,7 @@ def apply_lfo(signal, rate, depth, sample_rate=44100):
     lfo = 1 + depth * np.sin(2 * np.pi * rate * t)
     return signal * lfo
 
-# Filtre basique
+# Filtre Butterworth avec fréquence de coupure modulée par LFO
 def butter_filter(signal, cutoff, sample_rate=44100, filter_type='low', order=5):
     nyquist = 0.5 * sample_rate
     normal_cutoff = cutoff / nyquist
@@ -70,22 +70,6 @@ def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, duration, sample_rate=44100):
     lfo = 1 + lfo_depth * np.sin(2 * np.pi * lfo_rate * t)
     # Appliquer le LFO à chaque échantillon pour obtenir une série dynamique de valeurs de coupure
     return cutoff * lfo
-
-# Fonction pour appliquer le filtre avec LFO modulé sur la fréquence de coupure
-def apply_filter_after_oversampling(signal, filter_lfo, filter_type, sample_rate=44100, oversample_factor=10):
-    # Initialiser le tableau du signal filtré
-    filtered_signal = np.zeros_like(signal)
-    
-    # Appliquer le filtre à chaque tranche du signal
-    for i in range(0, len(signal), oversample_factor):
-        # Calculer la fréquence de coupure pour cette tranche
-        current_cutoff = filter_lfo[i]  # Prendre la fréquence de coupure correspondante pour cette tranche
-        
-        # Appliquer le filtre à la tranche avec la fréquence de coupure modifiée
-        filtered_signal[i:i + oversample_factor] = butter_filter(
-            signal[i:i + oversample_factor], current_cutoff, sample_rate, filter_type)
-    
-    return filtered_signal
 
 # Application Streamlit
 st.title("🎛️ Synthétiseur Subtractif")
@@ -144,14 +128,15 @@ with col5:
     filter_type = st.selectbox("Type de filtre", ["low", "high"])
     cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
 with col6:
-    # Affichage de la courbe de Bode du filtre
-    st.subheader("📉 Courbe de Bode du Filtre")
-    b, a = butter(5, cutoff / (0.5 * 44100), btype=filter_type, analog=False)
+    # Affichage de la courbe de Bode du filtre Butterworth
+    nyquist = 0.5 * 44100
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(5, normal_cutoff, btype=filter_type, analog=False)
     w, h = freqz(b, a, worN=8000)
     fig, ax = plt.subplots()
     ax.plot(0.5 * 44100 * w / np.pi, np.abs(h), 'b')
-    ax.set_xlim([0, 6000])  # Limiter l'axe des x à 10 000 Hz
-    ax.set_title("Réponse en fréquence du filtre")
+    ax.set_xlim([0, 6000])
+    ax.set_title("Réponse en fréquence du filtre Butterworth")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Gain")
     ax.grid()
@@ -174,21 +159,23 @@ with col8:
     ax.legend()
     st.pyplot(fig)
 
-# Appliquer le filtre après oversampling
-filtered_signal = apply_filter_after_oversampling(lfo_signal, filter_lfo, filter_type)
+# Appliquer le filtre Butterworth avec LFO modulé
+filtered_signal = np.zeros_like(lfo_signal)
+for i in range(len(lfo_signal)):
+    filtered_signal[i] = butter_filter(lfo_signal[i:i+1], filter_lfo[i], 44100, filter_type)
 
-# Affichage de la transformée de Fourier du signal filtré
-st.subheader("Transformée de Fourier du Signal Filtré")
-fft_filtered_signal = np.fft.fft(filtered_signal)
-fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
-fig, ax = plt.subplots()
-ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange', label="FFT Filtré")
-ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
-ax.set_title("Transformée de Fourier du Signal Filtré")
-ax.set_xlabel("Fréquence (Hz)")
-ax.set_ylabel("Amplitude (arbitraire)")
-ax.legend()
-st.pyplot(fig)
+with col8:
+    # Affichage de la transformée de Fourier du signal filtré
+    fft_filtered_signal = np.fft.fft(filtered_signal)
+    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
+    fig, ax = plt.subplots()
+    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange', label="FFT Filtré")
+    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
+    ax.set_title("Transformée de Fourier du Signal Filtré")
+    ax.set_xlabel("Fréquence (Hz)")
+    ax.set_ylabel("Amplitude (arbitraire)")
+    ax.legend()
+    st.pyplot(fig)
 
 # Section ADSR
 col9, col10 = st.columns(2)
