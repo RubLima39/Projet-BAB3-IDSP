@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-from scipy.signal import lfilter, freqz, iirfilter
+from scipy.signal import lfilter, freqz
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import io
@@ -24,6 +24,31 @@ def apply_lfo(signal, rate, depth, wave_type='Sinus', sample_rate=44100):
     t = np.linspace(0, len(signal) / sample_rate, len(signal), endpoint=False)
     lfo = 1 + depth * generate_waveform(wave_type, rate, len(signal) / sample_rate, sample_rate)
     return signal * lfo
+
+# Fonction pour calculer les coefficients du filtre biquad
+def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
+    nyquist = 0.5 * sample_rate
+    omega = 2 * np.pi * cutoff / sample_rate
+    alpha = np.sin(omega) / (2 * q)
+
+    if filter_type == 'low':
+        b0 = (1 - np.cos(omega)) / 2
+        b1 = 1 - np.cos(omega)
+        b2 = (1 - np.cos(omega)) / 2
+        a0 = 1 + alpha
+        a1 = -2 * np.cos(omega)
+        a2 = 1 - alpha
+    elif filter_type == 'high':
+        b0 = (1 + np.cos(omega)) / 2
+        b1 = -(1 + np.cos(omega))
+        b2 = (1 + np.cos(omega)) / 2
+        a0 = 1 + alpha
+        a1 = -2 * np.cos(omega)
+        a2 = 1 - alpha
+
+    b = [b0 / a0, b1 / a0, b2 / a0]
+    a = [1, a1 / a0, a2 / a0]
+    return b, a
 
 # Application de l'enveloppe ADSR
 def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
@@ -64,6 +89,21 @@ def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, wave_type='Sinus', duration=1,
     # Appliquer le LFO à chaque échantillon pour obtenir une série dynamique de valeurs de coupure
     return cutoff * lfo
 
+# Fonction pour appliquer toutes les transformations
+def apply_transformations(signal, sample_rate, lfo_rate, lfo_depth, lfo_wave_type, filter_lfo, filter_type, filter_q, attack, decay, sustain, release):
+    lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type, sample_rate)
+    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, filter_lfo, sample_rate, filter_type, filter_q)
+    adsr_signal = apply_adsr(filtered_signal, sample_rate, attack, decay, sustain, release)
+    return adsr_signal
+
+# Appliquer le filtre biquad avec LFO modulé et résonance
+def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_type='low', filter_q=1.0):
+    filtered_signal = np.zeros_like(signal)
+    for i in range(len(signal)):
+        b, a = biquad(cutoff_lfo[i], filter_q, sample_rate, filter_type)
+        filtered_signal[i] = lfilter(b, a, [signal[i]])[0]
+    return filtered_signal
+
 # Application Streamlit
 st.title("🎛️ Synthétiseur Subtractif")
 st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
@@ -73,7 +113,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)")
     wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"])
-    frequency = st.slider("Fréquence (Hz)", 20, 2000, 440)
+    frequency = st.slider("Fréquence (Hz)", 20, 5000, 440)
     duration = st.slider("Durée (s)", 1, 6, 2)
 with col2:
     waveform = generate_waveform(wave_type, frequency, duration)
@@ -122,16 +162,15 @@ with col5:
     st.subheader("🎛️ Filtre")
     filter_type = st.selectbox("Type de filtre", ["low", "high"])
     cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
+    filter_q = st.slider("Résonance (Q)", 0.5, 10.0, 1.0)
 with col6:
-    # Affichage de la courbe de Bode du filtre d'ordre 2
-    nyquist = 0.5 * 44100
-    normal_cutoff = cutoff / nyquist
-    b, a = iirfilter(2, normal_cutoff, btype=filter_type, ftype='butter')
+    # Affichage de la courbe de Bode du filtre biquad
+    b, a = biquad(cutoff, filter_q, 44100, filter_type)
     w, h = freqz(b, a, worN=8000)
     fig, ax = plt.subplots()
     ax.plot(0.5 * 44100 * w / np.pi, np.abs(h), 'b')
     ax.set_xlim([0, 6000])
-    ax.set_title("Réponse en fréquence du filtre d'ordre 2")
+    ax.set_title("Réponse en fréquence du filtre biquad")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Gain")
     ax.grid()
@@ -155,43 +194,6 @@ with col8:
     ax.legend()
     st.pyplot(fig)
 
-# Appliquer le filtre biquad avec LFO modulé
-def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_type='low', order=2):
-    nyquist = 0.5 * sample_rate
-    filtered_signal = np.zeros_like(signal)
-    b_coeffs = []
-    a_coeffs = []
-
-    # Precompute filter coefficients for the entire signal
-    for cutoff in cutoff_lfo:
-        normal_cutoff = cutoff / nyquist
-        b, a = iirfilter(order, normal_cutoff, btype=filter_type, ftype='butter')
-        b_coeffs.append(b)
-        a_coeffs.append(a)
-
-    # Apply the precomputed filter coefficients
-    for i in range(len(signal)):
-        b = b_coeffs[i % len(b_coeffs)]
-        a = a_coeffs[i % len(a_coeffs)]
-        filtered_signal[i] = lfilter(b, a, [signal[i]])[0]
-
-    return filtered_signal
-
-filtered_signal = apply_dynamic_biquad_filter(lfo_signal, filter_lfo, 44100, filter_type)
-
-with col8:
-    # Affichage de la transformée de Fourier du signal filtré
-    fft_filtered_signal = np.fft.fft(filtered_signal)
-    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
-    fig, ax = plt.subplots()
-    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange', label="FFT Filtré")
-    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
-    ax.set_title("Transformée de Fourier du Signal Filtré")
-    ax.set_xlabel("Fréquence (Hz)")
-    ax.set_ylabel("Amplitude (arbitraire)")
-    ax.legend()
-    st.pyplot(fig)
-
 # Section ADSR
 col9, col10 = st.columns(2)
 with col9:
@@ -211,10 +213,24 @@ with col10:
     ax.legend()
     st.pyplot(fig)
 
-# Génération et lecture du signal final
-adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release)
-audio_file = numpy_to_wav(adsr_signal)
+# Appliquer toutes les transformations sur le signal initial
+transformed_signal = apply_transformations(waveform, 44100, lfo_rate, lfo_depth, lfo_wave_type, filter_lfo, filter_type, filter_q, attack, decay, sustain, release)
 
+with col8:
+    # Affichage de la transformée de Fourier du signal filtré
+    fft_filtered_signal = np.fft.fft(transformed_signal)
+    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
+    fig, ax = plt.subplots()
+    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange', label="FFT Filtré")
+    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
+    ax.set_title("Transformée de Fourier du Signal Filtré")
+    ax.set_xlabel("Fréquence (Hz)")
+    ax.set_ylabel("Amplitude (arbitraire)")
+    ax.legend()
+    st.pyplot(fig)
+
+# Génération et lecture du signal final
+audio_file = numpy_to_wav(transformed_signal)
 
 st.subheader("🎧 Jouer le son")
 st.audio(audio_file, format="audio/wav")
