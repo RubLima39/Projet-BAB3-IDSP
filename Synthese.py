@@ -216,5 +216,5 @@ adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release
 audio_file = numpy_to_wav(adsr_signal)
 
 
-st.subheader("Jouer le son")
+st.subheader("🎧 Jouer le son")
 st.audio(audio_file, format="audio/wav")
