@@ -66,7 +66,7 @@ def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, wave_type='Sinus', duration=1,
 
 # Application Streamlit
 st.title("🎛️ Synthétiseur Subtractif")
-st.info("🎧 Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
+st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
 
 # Section VCO
 col1, col2 = st.columns(2)
