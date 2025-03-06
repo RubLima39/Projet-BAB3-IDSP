@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-from scipy.signal import butter, lfilter, freqz
+from scipy.signal import lfilter, freqz, iirfilter
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import io
@@ -20,17 +20,10 @@ def generate_waveform(wave_type, frequency, duration, sample_rate=44100):
         return np.zeros_like(t)
 
 # LFO simple
-def apply_lfo(signal, rate, depth, sample_rate=44100):
+def apply_lfo(signal, rate, depth, wave_type='Sinus', sample_rate=44100):
     t = np.linspace(0, len(signal) / sample_rate, len(signal), endpoint=False)
-    lfo = 1 + depth * np.sin(2 * np.pi * rate * t)
+    lfo = 1 + depth * generate_waveform(wave_type, rate, len(signal) / sample_rate, sample_rate)
     return signal * lfo
-
-# Filtre Butterworth avec fréquence de coupure modulée par LFO
-def butter_filter(signal, cutoff, sample_rate=44100, filter_type='low', order=5):
-    nyquist = 0.5 * sample_rate
-    normal_cutoff = cutoff / nyquist
-    b, a = butter(order, normal_cutoff, btype=filter_type, analog=False)
-    return lfilter(b, a, signal)
 
 # Application de l'enveloppe ADSR
 def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
@@ -64,15 +57,16 @@ def numpy_to_wav(signal, sample_rate=44100):
     return buf
 
 # Second LFO pour moduler le filtre
-def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, duration, sample_rate=44100):
+def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, wave_type='Sinus', duration=1, sample_rate=44100):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
     # Créer le LFO pour moduler la fréquence de coupure
-    lfo = 1 + lfo_depth * np.sin(2 * np.pi * lfo_rate * t)
+    lfo = 1 + lfo_depth * generate_waveform(wave_type, lfo_rate, duration, sample_rate)
     # Appliquer le LFO à chaque échantillon pour obtenir une série dynamique de valeurs de coupure
     return cutoff * lfo
 
 # Application Streamlit
 st.title("🎛️ Synthétiseur Subtractif")
+st.info("🎧 Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
 
 # Section VCO
 col1, col2 = st.columns(2)
@@ -108,10 +102,11 @@ with col2:
 col3, col4 = st.columns(2)
 with col3:
     st.subheader("🔄 LFO du Trémolo")
+    lfo_wave_type = st.selectbox("Type d'onde LFO", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="lfo_wave_type")
     lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0)
     lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5)
 with col4:
-    lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth)
+    lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth, lfo_wave_type)
     fig, ax = plt.subplots()
     ax.plot(lfo_signal[:20000], color='green', label='LFO')
     ax.set_xlim([0, 5000]) 
@@ -128,15 +123,15 @@ with col5:
     filter_type = st.selectbox("Type de filtre", ["low", "high"])
     cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
 with col6:
-    # Affichage de la courbe de Bode du filtre Butterworth
+    # Affichage de la courbe de Bode du filtre d'ordre 2
     nyquist = 0.5 * 44100
     normal_cutoff = cutoff / nyquist
-    b, a = butter(5, normal_cutoff, btype=filter_type, analog=False)
+    b, a = iirfilter(2, normal_cutoff, btype=filter_type, ftype='butter')
     w, h = freqz(b, a, worN=8000)
     fig, ax = plt.subplots()
     ax.plot(0.5 * 44100 * w / np.pi, np.abs(h), 'b')
     ax.set_xlim([0, 6000])
-    ax.set_title("Réponse en fréquence du filtre Butterworth")
+    ax.set_title("Réponse en fréquence du filtre d'ordre 2")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Gain")
     ax.grid()
@@ -146,9 +141,10 @@ with col6:
 col7, col8 = st.columns(2)
 with col7:
     st.subheader("🔄 LFO du Filtre")
+    filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type")
     filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0)
     filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3)
-    filter_lfo = apply_filter_lfo(cutoff, filter_lfo_rate, filter_lfo_depth, duration)
+    filter_lfo = apply_filter_lfo(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, duration)
 with col8:
     fig, ax = plt.subplots()
     ax.plot(filter_lfo[:50000], color='orange', label='LFO Filtre')
@@ -159,10 +155,29 @@ with col8:
     ax.legend()
     st.pyplot(fig)
 
-# Appliquer le filtre Butterworth avec LFO modulé
-filtered_signal = np.zeros_like(lfo_signal)
-for i in range(len(lfo_signal)):
-    filtered_signal[i] = butter_filter(lfo_signal[i:i+1], filter_lfo[i], 44100, filter_type)
+# Appliquer le filtre biquad avec LFO modulé
+def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_type='low', order=2):
+    nyquist = 0.5 * sample_rate
+    filtered_signal = np.zeros_like(signal)
+    b_coeffs = []
+    a_coeffs = []
+
+    # Precompute filter coefficients for the entire signal
+    for cutoff in cutoff_lfo:
+        normal_cutoff = cutoff / nyquist
+        b, a = iirfilter(order, normal_cutoff, btype=filter_type, ftype='butter')
+        b_coeffs.append(b)
+        a_coeffs.append(a)
+
+    # Apply the precomputed filter coefficients
+    for i in range(len(signal)):
+        b = b_coeffs[i % len(b_coeffs)]
+        a = a_coeffs[i % len(a_coeffs)]
+        filtered_signal[i] = lfilter(b, a, [signal[i]])[0]
+
+    return filtered_signal
+
+filtered_signal = apply_dynamic_biquad_filter(lfo_signal, filter_lfo, 44100, filter_type)
 
 with col8:
     # Affichage de la transformée de Fourier du signal filtré
@@ -200,7 +215,6 @@ with col10:
 adsr_signal = apply_adsr(filtered_signal, 44100, attack, decay, sustain, release)
 audio_file = numpy_to_wav(adsr_signal)
 
-if st.button("▶️ Jouer le son"):
-    st.audio(audio_file, format="audio/wav")
 
-st.info("🎧 Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
+st.subheader("Jouer le son")
+st.audio(audio_file, format="audio/wav")
