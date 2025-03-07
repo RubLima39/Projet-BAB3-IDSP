@@ -46,7 +46,8 @@ def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
         a1 = -2 * np.cos(omega)
         a2 = 1 - alpha
 
-    b = [b0 / a0, b1 / a0, b2 / a0]
+    # Normalisation des coefficients pour que le niveau stable soit inférieur à 1
+    b = [b0 / (a0 * 10), b1 / (a0 * 10), b2 / (a0 * 10)]
     a = [1, a1 / a0, a2 / a0]
     return b, a
 
@@ -111,10 +112,10 @@ st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter vot
 # Section VCO
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)")
-    wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"])
-    frequency = st.slider("Fréquence (Hz)", 20, 5000, 440)
-    duration = st.slider("Durée (s)", 1, 6, 2)
+    st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)", help="L'oscillateur à commande de tension (VCO) génère des formes d'onde de base.")
+    wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"], help="Sélectionnez le type d'onde à générer.")
+    frequency = st.slider("Fréquence (Hz)", 20, 5000, 440, help="Définissez la fréquence de l'onde en Hertz.")
+    duration = st.slider("Durée (s)", 1, 6, 2, help="Définissez la durée de l'onde en secondes.")
 with col2:
     waveform = generate_waveform(wave_type, frequency, duration)
     fig, ax = plt.subplots()
@@ -141,10 +142,10 @@ with col2:
 # Section trémolo
 col3, col4 = st.columns(2)
 with col3:
-    st.subheader("🔄 LFO du Trémolo")
-    lfo_wave_type = st.selectbox("Type d'onde LFO", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="lfo_wave_type")
-    lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0)
-    lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5)
+    st.subheader("🔄 LFO du Trémolo", help="Le LFO (Low Frequency Oscillator) du trémolo module l'amplitude du signal.")
+    lfo_wave_type = st.selectbox("Type d'onde LFO", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO.")
+    lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0, help="Définissez la fréquence du LFO en Hertz.")
+    lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5, help="Définissez la profondeur du LFO.")
 with col4:
     lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth, lfo_wave_type)
     fig, ax = plt.subplots()
@@ -159,10 +160,10 @@ with col4:
 # Section Filtre
 col5, col6 = st.columns(2)
 with col5:
-    st.subheader("🎛️ Filtre")
-    filter_type = st.selectbox("Type de filtre", ["low", "high"])
-    cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 2000, 1000)
-    filter_q = st.slider("Résonance (Q)", 0.5, 10.0, 1.0)
+    st.subheader("🎛️ Filtre", help="Le filtre permet de modifier le spectre de fréquence du signal.")
+    filter_type = st.selectbox("Type de filtre", ["low", "high"], help="Sélectionnez le type de filtre (passe-bas ou passe-haut).")
+    cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 4000, 1000, help="Définissez la fréquence de coupure du filtre en Hertz.")
+    filter_q = st.slider("Résonance (Q)", 0.5, 10.0, 1.0, help="Définissez la résonance du filtre.")
 with col6:
     # Affichage de la courbe de Bode du filtre biquad
     b, a = biquad(cutoff, filter_q, 44100, filter_type)
@@ -179,10 +180,10 @@ with col6:
 # Section LFO du Filtre
 col7, col8 = st.columns(2)
 with col7:
-    st.subheader("🔄 LFO du Filtre")
-    filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type")
-    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0)
-    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3)
+    st.subheader("🔄 LFO du Filtre", help="Le LFO du filtre module la fréquence de coupure du filtre.")
+    filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO du filtre.")
+    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, help="Définissez la fréquence du LFO du filtre en Hertz.")
+    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, help="Définissez la profondeur du LFO du filtre.")
     filter_lfo = apply_filter_lfo(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, duration)
 with col8:
     fig, ax = plt.subplots()
@@ -197,11 +198,11 @@ with col8:
 # Section ADSR
 col9, col10 = st.columns(2)
 with col9:
-    st.subheader("🎯 Enveloppe ADSR")
-    attack = st.slider("Attack (s)", 0.01, 2.0, 0.1)
-    decay = st.slider("Decay (s)", 0.01, 2.0, 0.1)
-    sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7)
-    release = st.slider("Release (s)", 0.01, 2.0, 0.2)
+    st.subheader("🎯 Enveloppe ADSR", help="L'enveloppe ADSR (Attack, Decay, Sustain, Release) module l'amplitude du signal au fil du temps.")
+    attack = st.slider("Attack (s)", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque en secondes.")
+    decay = st.slider("Decay (s)", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance en secondes.")
+    sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien.")
+    release = st.slider("Release (s)", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche en secondes.")
 with col10:
     t = np.linspace(0, duration, int(44100 * duration), endpoint=False)
     adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
