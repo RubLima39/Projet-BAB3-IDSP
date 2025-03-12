@@ -127,7 +127,7 @@ with col2:
     waveform = generate_waveform(wave_type, frequency, duration)
     t = np.arange(len(waveform)) / 44100
     fig, ax = plt.subplots()
-    ax.plot(t[:1000], waveform[:1000], color='blue', label="Forme d'onde")
+    ax.plot(t[:1000], waveform[:1000], color='blue')
     ax.set_title("Aperçu de la forme d'onde")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
@@ -157,7 +157,7 @@ with col4:
     lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth, lfo_wave_type)
     t_lfo = np.arange(len(lfo_signal)) / 44100
     fig, ax = plt.subplots()
-    ax.plot(t_lfo[:20000], lfo_signal[:20000], color='green', label='LFO')
+    ax.plot(t_lfo[:20000], lfo_signal[:20000], color='green')
     ax.set_title("Aperçu du LFO")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
@@ -188,7 +188,7 @@ with col6:
     filtered_signal_static = apply_static_biquad_filter(waveform, cutoff, 44100, type_filter, filter_q)
     t_filtered_static = np.arange(len(filtered_signal_static)) / 44100
     fig, ax = plt.subplots()
-    ax.plot(t_filtered_static[:1000], filtered_signal_static[:1000], color='cyan', label="Signal Filtré (Sans LFO)")
+    ax.plot(t_filtered_static[1000:2000], filtered_signal_static[1000:2000], color='cyan')
     ax.set_title("Aperçu du signal filtré (Sans LFO)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
@@ -206,18 +206,31 @@ with col7:
 with col8:
     fig, ax = plt.subplots()
     t_lfo_filter = np.arange(len(filter_lfo)) / 44100
-    ax.plot(t[:50000], filter_lfo[:50000], color='orange', label='LFO Filtre')
+    ax.plot(t[:50000], filter_lfo[:50000], color='orange')
     ax.set_title("Aperçu du LFO du Filtre")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence de coupure (Hz)")
     ax.legend()
     st.pyplot(fig)
-    filtered_signal_lfo = apply_dynamic_biquad_filter(waveform, filter_lfo, sample_rate=44100, filter_type=type_filter, filter_q=1.0)
+    filtered_signal_lfo = apply_dynamic_biquad_filter(waveform, filter_lfo, sample_rate=44100, filter_type=type_filter, filter_q=filter_q)
     fig, ax = plt.subplots()
-    ax.plot(t[:50000], filtered_signal_lfo[:50000], color='orange', label='LFO Filtre')
+    ax.plot(t[2000:10000], filtered_signal_lfo[2000:10000], color='orange')
     ax.set_title("Aperçu du signal filtré dynamiquement")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
+    ax.legend()
+    st.pyplot(fig)
+
+with col8:
+    # Affichage de la transformée de Fourier du signal filtré
+    fft_filtered_signal = np.fft.fft(filtered_signal_lfo)
+    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
+    fig, ax = plt.subplots()
+    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange')
+    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
+    ax.set_title("Transformée de Fourier du Signal Filtré")
+    ax.set_xlabel("Fréquence (Hz)")
+    ax.set_ylabel("Amplitude (arbitraire)")
     ax.legend()
     st.pyplot(fig)
 
@@ -232,7 +245,7 @@ with col9:
 with col10:
     adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
     fig, ax = plt.subplots()
-    ax.plot(t[:300000], adsr_envelope[:300000], color='red', label='ADSR')
+    ax.plot(t[:300000], adsr_envelope[:300000], color='red')
     ax.set_title("Aperçu de l'enveloppe ADSR")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
@@ -241,19 +254,6 @@ with col10:
 
 # Appliquer toutes les transformations sur le signal initialnommés. Voici la correction :
 transformed_signal = apply_transformations(waveform, 44100, lfo_rate, lfo_depth, lfo_wave_type, filter_lfo, type_filter, filter_q, attack, decay, sustain, release)
-
-with col8:
-    # Affichage de la transformée de Fourier du signal filtré
-    fft_filtered_signal = np.fft.fft(transformed_signal)
-    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
-    fig, ax = plt.subplots()
-    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange', label="FFT Filtré")
-    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
-    ax.set_title("Transformée de Fourier du Signal Filtré")
-    ax.set_xlabel("Fréquence (Hz)")
-    ax.set_ylabel("Amplitude (arbitraire)")
-    ax.legend()
-    st.pyplot(fig)
 
 # Génération et lecture du signal final
 audio_file = numpy_to_wav(transformed_signal)
