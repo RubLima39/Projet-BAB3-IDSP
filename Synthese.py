@@ -96,9 +96,13 @@ def apply_static_biquad_filter(signal, cutoff, sample_rate=44100, filter_type='l
 # Appliquer le filtre biquad avec LFO modulé et résonance
 def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_type='low', filter_q=1.0):
     filtered_signal = np.zeros_like(signal)
+    b, a = biquad(cutoff_lfo[0], filter_q, sample_rate, filter_type)  # Initialize filter coefficients
+    zi = np.zeros(max(len(b), len(a)) - 1)  # Initialize the filter state
     for i in range(len(signal)):
-        b, a = biquad(cutoff_lfo[i], filter_q, sample_rate, filter_type)
-        filtered_signal[i] = lfilter(b, a, [signal[i]])[0]
+        if i > 0 and cutoff_lfo[i] != cutoff_lfo[i-1]:  # Update filter coefficients if cutoff changes
+            b, a = biquad(cutoff_lfo[i], filter_q, sample_rate, filter_type)
+            zi = lfilter(b, a, [0], zi=zi)[1]  # Reset the filter state when coefficients change
+        filtered_signal[i], zi = lfilter(b, a, [signal[i]], zi=zi)  # Apply the filter with the current state
     return filtered_signal
 
 # Fonction pour appliquer toutes les transformations
@@ -109,7 +113,7 @@ def apply_transformations(signal, sample_rate, lfo_rate, lfo_depth, lfo_wave_typ
     return adsr_signal
 
 # Application Streamlit
-st.title("🎛️ Synthétiseur Subtractif")
+st.title("🎛️ Synthétiseur Soustractif")
 st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
 
 # Section VCO
@@ -209,7 +213,6 @@ with col8:
     ax.legend()
     st.pyplot(fig)
     filtered_signal_lfo = apply_dynamic_biquad_filter(waveform, filter_lfo, sample_rate=44100, filter_type=type_filter, filter_q=1.0)
-    t = np.arange(len(filtered_signal_lfo)) / 44100
     fig, ax = plt.subplots()
     ax.plot(t[:50000], filtered_signal_lfo[:50000], color='orange', label='LFO Filtre')
     ax.set_title("Aperçu du signal filtré dynamiquement")
