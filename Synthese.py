@@ -54,6 +54,32 @@ def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
     a = [1, a1 / a0, a2 / a0]
     return b, a
 
+# Fonction pour afficher les pôles et zéros du filtre
+def plot_poles_zeros(b, a):
+    from matplotlib import patches
+
+    # Calculer les pôles et zéros
+    z = np.roots(b)
+    p = np.roots(a)
+    k = np.polyval(b, 1) / np.polyval(a, 1)
+
+    # Tracer les pôles et zéros
+    fig, ax = plt.subplots()
+    unit_circle = patches.Circle((0, 0), radius=1, fill=False, color='black', ls='dotted')
+    ax.add_patch(unit_circle)
+    ax.plot(np.real(z), np.imag(z), 'go', label='Zéros')
+    ax.plot(np.real(p), np.imag(p), 'rx', label='Pôles')
+    ax.set_xlim((-1.5, 1.5))
+    ax.set_ylim((-1.5, 1.5))
+    ax.axhline(0, color='black', lw=0.5)
+    ax.axvline(0, color='black', lw=0.5)
+    ax.set_title("Pôles et Zéros du Filtre")
+    ax.set_xlabel("Partie Réelle")
+    ax.set_ylabel("Partie Imaginaire")
+    ax.legend()
+    ax.grid()
+    return fig
+
 # Application de l'enveloppe ADSR
 def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
     length = len(signal)
@@ -145,7 +171,7 @@ st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter vot
 
 # Fréquences et durées des notes pour le début de "Für Elise"
 fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00, 261.63, 329.63, 440.00, 493.88, 329.63, 415.30, 493.88, 523.25, 329.63, 659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00, 261.63, 329.63, 440.00, 493.88, 329.63, 523.25, 493.88, 440.00]
-fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6]
+fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 1.4]
 
 # Notes disponibles et leurs fréquences en Hz
 notes_disponibles = """
@@ -232,6 +258,11 @@ with col6:
     ax.set_ylabel("Gain (dB)")
     ax.grid()
     st.pyplot(fig)
+
+    # Affichage des pôles et zéros du filtre biquad
+    fig_pz = plot_poles_zeros(b, a)
+    st.pyplot(fig_pz)
+
     # Affichage de l'onde filtrée sans modulation du cutoff par le LFO
     filtered_signal_static = apply_static_biquad_filter(waveform, cutoff, 44100, type_filter, filter_q)
     t_filtered_static = np.arange(len(filtered_signal_static)) / 44100
