@@ -187,10 +187,53 @@ C7: 2093.00, C#7/Db7: 2217.46, D7: 2349.32, D#7/Eb7: 2489.02, E7: 2637.02, F7: 2
 C8: 4186.01
 """
 
+filtre_biquad = """
+    Appliquer un filtre biquad au signal d'entrée.
+
+    Cette fonction calcule les coefficients en fonction des caractéristiques souhaitées du filtre et applique le filtre au signal d'entrée.
+
+    Le filtre biquad est un filtre linéaire récursif de second ordre qui utilise l'équation aux différences suivante :
+
+    y[n] = b0 * x[n] + b1 * x[n-1] + b2 * x[n-2] - a1 * y[n-1] - a2 * y[n-2]
+
+    Où :
+    - x[n] est l'échantillon d'entrée actuel
+    - x[n-1] et x[n-2] sont les échantillons d'entrée précédents
+    - y[n] est l'échantillon de sortie actuel
+    - y[n-1] et y[n-2] sont les échantillons de sortie précédents
+    - b0, b1, b2 sont les coefficients de l'élément direct
+    - a1, a2 sont les coefficients de rétroaction
+
+    Les coefficients (b0, b1, b2, a1, a2) sont calculés en fonction des caractéristiques souhaitées du filtre telles que la fréquence de coupure, le facteur Q et le gain. Ces caractéristiques définissent le comportement du filtre, y compris sa réponse en fréquence et sa stabilité.
+
+    Le calcul des coefficients implique les étapes suivantes :
+    1. Déterminer la fréquence normalisée (ω0) en fonction de la fréquence de coupure et de la fréquence d'échantillonnage.
+    2. Calculer les variables intermédiaires (α, cos(ω0), sin(ω0)) en utilisant des fonctions trigonométriques.
+    3. Calculer les coefficients en utilisant les formules standard du biquad pour le type de filtre spécifique (passe-bas, passe-haut, passe-bande, etc.).
+
+    Pour un filtre passe-bas :
+    b0 = (1 - cos(ω0)) / 2
+    b1 = 1 - cos(ω0)
+    b2 = (1 - cos(ω0)) / 2
+    a0 = 1 + α
+    a1 = -2 * cos(ω0)
+    a2 = 1 - α
+
+    Pour un filtre passe-haut :
+    b0 = (1 + cos(ω0)) / 2
+    b1 = -(1 + cos(ω0))
+    b2 = (1 + cos(ω0)) / 2
+    a0 = 1 + α
+    a1 = -2 * cos(ω0)
+    a2 = 1 - α
+
+    Ce filtre est couramment utilisé dans le traitement audio, l'égalisation et d'autres applications de traitement du signal en raison de son efficacité et de sa polyvalence.
+    """
+
 # Section VCO
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)", help="L'oscillateur à commande de tension (VCO) génère des formes d'onde de base.")
+    st.subheader("🎚️ Oscillateur à Commande en Tension (VCO)", help="L'oscillateur à commande en tension (VCO) génère des formes d'onde de base.")
     wave_type = st.selectbox("Type d'onde", ["Carré", "Triangle", "Dent de scie", "Sinus"], help="Sélectionnez le type d'onde à générer.")
     notes = st.text_area("Notes (fréquences en Hz, séparées par des virgules)", ",".join(map(str, fur_elise_frequencies)), help=f"Entrez une suite de fréquences séparées par des virgules.\n{notes_disponibles}")
     durations = st.text_area("Durées (en secondes, séparées par des virgules)", ",".join(map(str, fur_elise_durations)), help="Entrez une suite de durées séparées par des virgules.")
@@ -241,7 +284,7 @@ with col4:
 # Section Filtre
 col5, col6 = st.columns(2)
 with col5:
-    st.subheader("🎛️ Filtre", help="Le filtre permet de modifier le spectre de fréquence du signal.")
+    st.subheader("🎛️ Filtre", help="Le filtre permet de modifier le spectre de fréquence du signal."+filtre_biquad)
     type_filter = st.selectbox("Type de filtre", ["low", "high"], help="Sélectionnez le type de filtre (passe-bas ou passe-haut).")
     cutoff = st.slider("Fréquence de coupure moyenne (Hz)", 20, 4000, 1000, help="Définissez la fréquence de coupure du filtre en Hertz.")
     filter_q = st.slider("Résonance (Q)", 0.5, 10.0, 1.0, help="Définissez la résonance du filtre.")
@@ -328,7 +371,7 @@ with col9:
 with col10:
     adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
     fig, ax = plt.subplots()
-    ax.plot(t[:300000], adsr_envelope[:300000], color='red')
+    ax.plot(t[:600000], adsr_envelope[:600000], color='red')
     ax.set_title("Aperçu de l'enveloppe ADSR")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
