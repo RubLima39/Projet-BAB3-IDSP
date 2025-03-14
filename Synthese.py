@@ -320,14 +320,14 @@ with col6:
 # Section LFO et ADSR du Filtre
 col7, col8 = st.columns(2)
 with col7:
-    st.subheader("🔄 LFO et ADSR du Filtre", help="Le LFO et l'enveloppe ADSR du filtre modulent la fréquence de coupure du filtre.")
-    filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO du filtre.")
-    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, help="Définissez la fréquence du LFO du filtre en Hertz.")
-    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, help="Définissez la profondeur du LFO du filtre.")
-    filter_adsr_attack = st.slider("Attack (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque du filtre en secondes.")
-    filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du filtre en secondes.")
-    filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du filtre.")
-    filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du filtre en secondes.")
+    st.subheader("🔄 LFO et ADSR sur la fréquence de coupure (cutoff) du filtre", help="Le LFO et l'enveloppe ADSR du filtre modulent la fréquence de coupure du filtre.")
+    filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO du cutoff.")
+    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, help="Définissez la fréquence du LFO du cutoff en Hertz.")
+    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, help="Définissez la profondeur du LFO du cutoff.")
+    filter_adsr_attack = st.slider("Attack (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque du cutoff en secondes.")
+    filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du cutoff en secondes.")
+    filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du cutoff.")
+    filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du cutoff en secondes.")
     combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, 44100, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, total_duration)
 with col8:
     fig, ax = plt.subplots()
