@@ -81,12 +81,35 @@ def numpy_to_wav(signal, sample_rate=44100):
     buf.seek(0)
     return buf
 
-# Second LFO pour moduler le filtre
-def apply_filter_lfo(cutoff, lfo_rate, lfo_depth, wave_type='Sinus', duration=1, sample_rate=44100):
-    # Créer le LFO pour moduler la fréquence de coupure
-    lfo = 1 + lfo_depth * generate_waveform(wave_type, lfo_rate, duration, sample_rate)
-    # Appliquer le LFO à chaque échantillon pour obtenir une série dynamique de valeurs de coupure
-    return cutoff * lfo
+# Fonction pour appliquer une enveloppe ADSR et un LFO sur le cutoff du filtre
+def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type, sample_rate, attack, decay, sustain, release, duration):
+    length = int(sample_rate * duration)
+    t = np.linspace(0, duration, length, endpoint=False)
+
+    # Generate LFO
+    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, lfo_rate, duration, sample_rate)
+
+    # Generate ADSR envelope
+    attack_samples = int(sample_rate * attack)
+    decay_samples = int(sample_rate * decay)
+    release_samples = int(sample_rate * release)
+
+    envelope = np.zeros(length)
+
+    # Attack
+    envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+    # Decay
+    decay_end = attack_samples + decay_samples
+    envelope[attack_samples:decay_end] = np.linspace(1, sustain, decay_samples)
+    # Sustain
+    envelope[decay_end:length - release_samples] = sustain
+    # Release
+    envelope[length - release_samples:] = np.linspace(sustain, 0, release_samples)
+
+    # Combine LFO and ADSR
+    combined = lfo * envelope
+
+    return cutoff * combined
 
 # Fonction pour appliquer un filtre statique sans LFO
 def apply_static_biquad_filter(signal, cutoff, sample_rate=44100, filter_type='low', filter_q=1.0):
@@ -106,9 +129,9 @@ def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_ty
     return filtered_signal
 
 # Fonction pour appliquer toutes les transformations
-def apply_transformations(signal, sample_rate, lfo_rate, lfo_depth, lfo_wave_type, filter_lfo, filter_type, filter_q, attack, decay, sustain, release):
+def apply_transformations(signal, sample_rate, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release):
     lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type, sample_rate)
-    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, filter_lfo, sample_rate, filter_type, filter_q)
+    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, combined_cutoff, sample_rate, filter_type, filter_q)
     adsr_signal = apply_adsr(filtered_signal, sample_rate, attack, decay, sustain, release)
     return adsr_signal
 
@@ -120,7 +143,7 @@ st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter vot
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("🎚️ Oscillateur à Commande de Tension (VCO)", help="L'oscillateur à commande de tension (VCO) génère des formes d'onde de base.")
-    wave_type = st.selectbox("Type d'onde", ["Sinus", "Triangle", "Dent de scie", "Carré"], help="Sélectionnez le type d'onde à générer.")
+    wave_type = st.selectbox("Type d'onde", ["Carré", "Triangle", "Dent de scie", "Sinus"], help="Sélectionnez le type d'onde à générer.")
     frequency = st.slider("Fréquence (Hz)", 20, 5000, 440, help="Définissez la fréquence de l'onde en Hertz.")
     duration = st.slider("Durée (s)", 1, 6, 2, help="Définissez la durée de l'onde en secondes.")
 with col2:
@@ -138,11 +161,11 @@ with col2:
     fft_waveform = np.fft.fft(waveform)
     fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / 44100)
     fig, ax = plt.subplots()
-    ax.plot(fft_freqs[:len(fft_freqs)//2], np.abs(fft_waveform)[:len(fft_waveform)//2], color='purple', label="FFT")
+    ax.plot(fft_freqs[:len(fft_freqs)//2], 20 * np.log10(np.abs(fft_waveform)[:len(fft_waveform)//2]), color='purple', label="FFT")
     ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
     ax.set_title("Transformée de Fourier")
     ax.set_xlabel("Fréquence (Hz)")
-    ax.set_ylabel("Amplitude (arbitraire)")
+    ax.set_ylabel("Amplitude (dB)")
     ax.legend()
     st.pyplot(fig)
 
@@ -195,27 +218,31 @@ with col6:
     ax.legend()
     st.pyplot(fig)
 
-# Section LFO du Filtre
+# Section LFO et ADSR du Filtre
 col7, col8 = st.columns(2)
 with col7:
-    st.subheader("🔄 LFO du Filtre", help="Le LFO du filtre module la fréquence de coupure du filtre.")
+    st.subheader("🔄 LFO et ADSR du Filtre", help="Le LFO et l'enveloppe ADSR du filtre modulent la fréquence de coupure du filtre.")
     filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO du filtre.")
     filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, help="Définissez la fréquence du LFO du filtre en Hertz.")
     filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, help="Définissez la profondeur du LFO du filtre.")
-    filter_lfo = apply_filter_lfo(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, duration)
+    filter_adsr_attack = st.slider("Attack (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque du filtre en secondes.")
+    filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du filtre en secondes.")
+    filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du filtre.")
+    filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du filtre en secondes.")
+    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, 44100, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, duration)
 with col8:
     fig, ax = plt.subplots()
-    t_lfo_filter = np.arange(len(filter_lfo)) / 44100
-    ax.plot(t[:50000], filter_lfo[:50000], color='orange')
-    ax.set_title("Aperçu du LFO du Filtre")
+    t_lfo_filter = np.arange(len(combined_cutoff)) / 44100
+    ax.plot(t[:50000], combined_cutoff[:50000], color='orange')
+    ax.set_title("Aperçu du LFO et ADSR du Filtre")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence de coupure (Hz)")
     ax.legend()
     st.pyplot(fig)
-    filtered_signal_lfo = apply_dynamic_biquad_filter(waveform, filter_lfo, sample_rate=44100, filter_type=type_filter, filter_q=filter_q)
+    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(waveform, combined_cutoff, sample_rate=44100, filter_type=type_filter, filter_q=filter_q)
     fig, ax = plt.subplots()
-    ax.plot(t[2000:10000], filtered_signal_lfo[2000:10000], color='orange')
-    ax.set_title("Aperçu du signal filtré dynamiquement")
+    ax.plot(t[2000:10000], filtered_signal_lfo_adsr[2000:10000], color='orange')
+    ax.set_title("Aperçu du signal filtré dynamiquement avec LFO et ADSR")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
@@ -223,14 +250,14 @@ with col8:
 
 with col8:
     # Affichage de la transformée de Fourier du signal filtré
-    fft_filtered_signal = np.fft.fft(filtered_signal_lfo)
+    fft_filtered_signal = np.fft.fft(filtered_signal_lfo_adsr)
     fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
     fig, ax = plt.subplots()
-    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2], color='orange')
+    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], 20 * np.log10(np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2]), color='orange')
     ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
-    ax.set_title("Transformée de Fourier du Signal Filtré")
+    ax.set_title("Transformée de Fourier du Signal Filtré avec LFO et ADSR")
     ax.set_xlabel("Fréquence (Hz)")
-    ax.set_ylabel("Amplitude (arbitraire)")
+    ax.set_ylabel("Amplitude (dB)")
     ax.legend()
     st.pyplot(fig)
 
@@ -252,8 +279,8 @@ with col10:
     ax.legend()
     st.pyplot(fig)
 
-# Appliquer toutes les transformations sur le signal initialnommés. Voici la correction :
-transformed_signal = apply_transformations(waveform, 44100, lfo_rate, lfo_depth, lfo_wave_type, filter_lfo, type_filter, filter_q, attack, decay, sustain, release)
+# Appliquer toutes les transformations sur le signal initial
+transformed_signal = apply_transformations(waveform, 44100, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, type_filter, filter_q, attack, decay, sustain, release)
 
 # Génération et lecture du signal final
 audio_file = numpy_to_wav(transformed_signal)
