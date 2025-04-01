@@ -53,6 +53,8 @@ def biquad(cutoff, q, filter_type='low'):
         a0 = 1 + alpha
         a1 = -2 * np.cos(omega)
         a2 = 1 - alpha
+    # Rem: comme b0 = b2, et b1 = 2*b0 pour le passe-bas et b1 = -2*b0 pour le passe-haut, 
+    # on aura un zéro double en -1 pour le passe-bas et un zéro double en 1 pour le passe-haut.
 
     b = [b0 / (a0 * 10), b1 / (a0 * 10), b2 / (a0 * 10)]
     a = [1, a1 / a0, a2 / a0]
@@ -173,9 +175,10 @@ st.title("🎛️ Synthétiseur Soustractif")
 st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
 
 # Fréquences et durées des notes pour le début de "Für Elise"
-fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00]
-fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6]
-fur_elise_start_times = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6]
+fur_elise_frequencies = [659.25,622.25,659.25,622.25,659.25,493.88,587.33,523.25,440.0,261.63,329.63,440.0,493.88,329.63,415.3,493.88,523.25,220.0,329.63,164.81,329.63,415.30,220.0,329.63,440,0]
+fur_elise_durations = [0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2]
+fur_elise_start_times = [0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6,2.2,2.4,2.6,2.8,3.4,3.6,3.8,4.0,1.6,1.8,2.8,3.0,3.2,4.0,4.2,4.4]
+
 
 # Notes disponibles et leurs fréquences en Hz
 notes_disponibles = """
@@ -194,9 +197,11 @@ C8: 4186.01
 filtre_biquad = """
     Appliquer un filtre biquad au signal d'entrée.
 
-    Cette fonction calcule les coefficients en fonction des caractéristiques souhaitées du filtre et applique le filtre au signal d'entrée.
+    Cette fonction calcule les coefficients en fonction des caractéristiques
+    souhaitées du filtre et applique le filtre au signal d'entrée.
 
-    Le filtre biquad est un filtre linéaire récursif de second ordre qui utilise l'équation aux différences suivante :
+    Le filtre biquad est un filtre linéaire récursif de second ordre qui 
+    utilise l'équation aux différences suivante :
 
     y[n] = b0 * x[n] + b1 * x[n-1] + b2 * x[n-2] - a1 * y[n-1] - a2 * y[n-2]
 
@@ -208,12 +213,18 @@ filtre_biquad = """
     - b0, b1, b2 sont les coefficients de l'élément direct
     - a1, a2 sont les coefficients de rétroaction
 
-    Les coefficients (b0, b1, b2, a1, a2) sont calculés en fonction des caractéristiques souhaitées du filtre telles que la fréquence de coupure, le facteur Q et le gain. Ces caractéristiques définissent le comportement du filtre, y compris sa réponse en fréquence et sa stabilité.
+    Les coefficients (b0, b1, b2, a1, a2) sont calculés en fonction des 
+    caractéristiques souhaitées du filtre telles que la fréquence de coupure, 
+    le facteur Q et le gain. Ces caractéristiques définissent le comportement 
+    du filtre, y compris sa réponse en fréquence et sa stabilité.
 
     Le calcul des coefficients implique les étapes suivantes :
-    1. Déterminer la fréquence normalisée (ω0) en fonction de la fréquence de coupure et de la fréquence d'échantillonnage.
-    2. Calculer les variables intermédiaires (α, cos(ω0), sin(ω0)) en utilisant des fonctions trigonométriques.
-    3. Calculer les coefficients en utilisant les formules standard du biquad pour le type de filtre spécifique (passe-bas, passe-haut, passe-bande, etc.).
+    1. Déterminer la fréquence normalisée (ω0) en fonction de la fréquence de 
+    coupure et de la fréquence d'échantillonnage.
+    2. Calculer les variables intermédiaires (α, cos(ω0), sin(ω0)) en 
+    utilisant des fonctions trigonométriques.
+    3. Calculer les coefficients en utilisant les formules standard du biquad 
+    pour le type de filtre spécifique (passe-bas, passe-haut, passe-bande, etc.).
 
     Pour un filtre passe-bas :
     b0 = (1 - cos(ω0)) / 2
@@ -230,8 +241,15 @@ filtre_biquad = """
     a0 = 1 + α
     a1 = -2 * cos(ω0)
     a2 = 1 - α
+    
+    Ce filtre est couramment utilisé dans le traitement audio, l'égalisation
+    et d'autres applications de traitement du signal en raison de son 
+    efficacité et de sa polyvalence.
+    
+    Rem: comme b0 = b2, et b1 = +2*b0 pour le passe-bas et b1 = -2*b0 pour 
+    le passe-haut, on aura un zéro double en -1 pour le passe-bas et un zéro 
+    double en +1 pour le passe-haut.
 
-    Ce filtre est couramment utilisé dans le traitement audio, l'égalisation et d'autres applications de traitement du signal en raison de son efficacité et de sa polyvalence.
     """
 
 # Section VCO
@@ -275,16 +293,20 @@ col3, col4 = st.columns(2)
 with col3:
     st.subheader("🔄 LFO du Trémolo", help="Le LFO (Low Frequency Oscillator) du trémolo module l'amplitude du signal.")
     lfo_wave_type = st.selectbox("Type d'onde LFO", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO.")
-    lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0, help="Définissez la fréquence du LFO en Hertz.")
-    lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5, help="Définissez la profondeur du LFO.")
+    lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0, key="lfo_rate", help="Définissez la fréquence du LFO en Hertz.")
+    lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5, key="lfo_depth", help="Définissez la profondeur du LFO.")
 with col4:
-    lfo_signal = apply_lfo(first_waveform, lfo_rate, lfo_depth, lfo_wave_type)
-    t_lfo = np.arange(len(lfo_signal)) / SAMPLE_RATE
+    # Calculer uniquement l'amplitude du LFO
+    duration = len(first_waveform) / SAMPLE_RATE
+    t_lfo = np.linspace(0, duration, len(first_waveform), endpoint=False)
+    lfo_amplitude = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [duration], [0])
+
+    # Affichage de l'amplitude du LFO en fonction du temps
     fig, ax = plt.subplots()
-    ax.plot(t_lfo[:20000], lfo_signal[:20000], color='green')
-    ax.set_title("Aperçu du LFO (Première note)")
+    ax.plot(t_lfo[:20000], lfo_amplitude[:20000], color='green', label="Amplitude du LFO")
+    ax.set_title("Amplitude max du signal modulée par le LFO (Première note)")
     ax.set_xlabel("Temps (s)")
-    ax.set_ylabel("Amplitude")
+    ax.set_ylabel("Amplitude max du signal")
     ax.legend()
     st.pyplot(fig)
 
@@ -324,17 +346,20 @@ with col6:
     ax.legend()
     st.pyplot(fig)
 
+# Calculer la durée minimale des notes
+min_note_duration = min(durations)
+
 # Section LFO et ADSR du Filtre
 col7, col8 = st.columns(2)
 with col7:
     st.subheader("🔄 LFO et ADSR sur la fréquence de coupure (cutoff) du filtre", help="Le LFO et l'enveloppe ADSR du filtre modulent la fréquence de coupure du filtre.")
     filter_lfo_wave_type = st.selectbox("Type d'onde LFO Filtre", ["Sinus", "Triangle", "Dent de scie", "Carré"], key="filter_lfo_wave_type", help="Sélectionnez le type d'onde pour le LFO du cutoff.")
-    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, help="Définissez la fréquence du LFO du cutoff en Hertz.")
-    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, help="Définissez la profondeur du LFO du cutoff.")
-    filter_adsr_attack = st.slider("Attack (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque du cutoff en secondes.")
-    filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du cutoff en secondes.")
-    filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du cutoff.")
-    filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du cutoff en secondes.")
+    filter_lfo_rate = st.slider("Fréquence LFO Filtre (Hz)", 0.1, 10.0, 2.0, key="filter_lfo_rate", help="Définissez la fréquence du LFO du cutoff en Hertz.")
+    filter_lfo_depth = st.slider("Profondeur LFO Filtre", 0.0, 1.0, 0.3, key="filter_lfo_depth", help="Définissez la profondeur du LFO du cutoff.")
+    filter_adsr_attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_attack", help="Définissez la durée de l'attaque en secondes.")
+    filter_adsr_decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_decay", help="Définissez la durée de la décroissance en secondes.")
+    filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, key="filter_adsr_sustain", help="Définissez le niveau de maintien du cutoff.")
+    filter_adsr_release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_release", help="Définissez la durée de la relâche du cutoff.")
     combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, durations[0])
 with col8:
     fig, ax = plt.subplots()
@@ -354,27 +379,24 @@ with col8:
     ax.legend()
     st.pyplot(fig)
 
-with col8:
     # Affichage du spectrogramme du signal filtré
     fig, ax = plt.subplots()
     Pxx, freqs, bins, im = ax.specgram(filtered_signal_lfo_adsr, NFFT=1024, Fs=SAMPLE_RATE, noverlap=512, cmap='viridis')
-    ax.set_title("Spectrogramme du Signal Filtré dynamiquement (Première note)")
+    st.subheader("Spectrogramme du Signal Filtré dynamiquement (Première note)", help="Le spectrogramme montre l'évolution des fréquences du signal au fil du temps. Les couleurs représentent l'amplitude des fréquences (en dB).")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence (Hz)")
+    ax.set_ylim([0, 4000])
     fig.colorbar(im, ax=ax, label="Amplitude (dB)")
     st.pyplot(fig)
-
-# Calculer la durée minimale des notes
-min_note_duration = min(durations)
 
 # Section ADSR
 col9, col10 = st.columns(2)
 with col9:
     st.subheader("🎯 Enveloppe ADSR", help="L'enveloppe ADSR (Attack, Decay, Sustain, Release) module l'amplitude du signal au fil du temps.")
-    attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de l'attaque en secondes.")
-    decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de la décroissance en secondes.")
-    sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien.")
-    release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de la relâche en secondes.")
+    attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_attack", help="Définissez la durée de l'attaque en secondes.")
+    decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_decay", help="Définissez la durée de la décroissance en secondes.")
+    sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7, key="adsr_sustain", help="Définissez le niveau de maintien.")
+    release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_release", help="Définissez la durée de la relâche en secondes.")
 with col10:
     adsr_envelope = apply_adsr(np.ones_like(t), attack, decay, sustain, release)
     fig, ax = plt.subplots()
@@ -388,23 +410,37 @@ with col10:
 # Section Mélodie complète
 st.subheader("🎵 Jouer la Mélodie Complète")
 
-# Générer la mélodie complète avec superposition
+# Générer la mélodie complète avec transformations appliquées à chaque note séparément
 max_duration = max([start + duration for start, duration in zip(start_times, durations)])
-melody_signal = generate_waveform(wave_type, frequencies, durations, start_times)
+melody_signal = np.zeros(int(SAMPLE_RATE * max_duration))
 
-# Normaliser le signal
+for freq, dur, start in zip(frequencies, durations, start_times):
+    # Générer la forme d'onde pour la note
+    note_signal = generate_waveform(wave_type, [freq], [dur], [0])
+    
+    # Appliquer les transformations à la note
+    note_cutoff = apply_combined_adsr_lfo_to_cutoff(
+        cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
+        filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, dur
+    )
+    transformed_note = apply_transformations(
+        note_signal, lfo_rate, lfo_depth, lfo_wave_type, note_cutoff,
+        type_filter, filter_q, attack, decay, sustain, release
+    )
+    
+    # Ajouter la note transformée au signal final
+    start_sample = int(SAMPLE_RATE * start)
+    end_sample = start_sample + len(transformed_note)
+    
+    # Ensure the slice fits within the melody_signal bounds
+    if end_sample > len(melody_signal):
+        transformed_note = transformed_note[:len(melody_signal) - start_sample]
+    
+    melody_signal[start_sample:start_sample + len(transformed_note)] += transformed_note
+
+# Normaliser le signal final
 melody_signal /= np.max(np.abs(melody_signal))
 
-# Appliquer les transformations au signal complet
-combined_cutoff = apply_combined_adsr_lfo_to_cutoff(
-    cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
-    filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, max_duration
-)
-transformed_signal = apply_transformations(
-    melody_signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff,
-    type_filter, filter_q, attack, decay, sustain, release
-)
-
 # Générer et lire le fichier audio
-audio_file = numpy_to_wav(transformed_signal)
+audio_file = numpy_to_wav(melody_signal)
 st.audio(audio_file, format="audio/wav")
