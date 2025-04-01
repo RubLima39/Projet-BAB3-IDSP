@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 import scipy.io.wavfile as wav
 import io
 
+# Global sampling rate
+SAMPLE_RATE = 22050
+
 # Fonction pour générer des formes d'onde
-def generate_waveform(wave_type, frequencies, durations, sample_rate=44100):
+def generate_waveform(wave_type, frequencies, durations):
     waveform = np.array([])
     for frequency, duration in zip(frequencies, durations):
-        t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+        t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
         if wave_type == 'Sinus':
             wave = np.sin(2 * np.pi * frequency * t)
         elif wave_type == 'Triangle':
@@ -24,14 +27,14 @@ def generate_waveform(wave_type, frequencies, durations, sample_rate=44100):
     return waveform
 
 # LFO simple
-def apply_lfo(signal, rate, depth, wave_type='Sinus', sample_rate=44100):
-    t = np.linspace(0, len(signal) / sample_rate, len(signal), endpoint=False)
-    lfo = 1 + depth * generate_waveform(wave_type, [rate], [len(signal) / sample_rate], sample_rate)
+def apply_lfo(signal, rate, depth, wave_type='Sinus'):
+    t = np.linspace(0, len(signal) / SAMPLE_RATE, len(signal), endpoint=False)
+    lfo = 1 + depth * generate_waveform(wave_type, [rate], [len(signal) / SAMPLE_RATE])
     return signal * lfo
 
 # Fonction pour calculer les coefficients du filtre biquad
-def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
-    omega = 2 * np.pi * cutoff / sample_rate
+def biquad(cutoff, q, filter_type='low'):
+    omega = 2 * np.pi * cutoff / SAMPLE_RATE
     alpha = np.sin(omega) / (2 * q)
 
     if filter_type == 'low':
@@ -48,10 +51,7 @@ def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
         a0 = 1 + alpha
         a1 = -2 * np.cos(omega)
         a2 = 1 - alpha
-    # Rem: comme b0 et b2 sont les mêmes pour low et high, et b1 = 2*b0 pour le passe-bas et -2*b0 pour le passe-haut, 
-    # on a un zéro double en -1 pour le passe-bas et un zéro double en +1 pour le passe-haut.
-    
-    # Normalisation des coefficients pour que le niveau stable soit inférieur à 1
+
     b = [b0 / (a0 * 10), b1 / (a0 * 10), b2 / (a0 * 10)]
     a = [1, a1 / a0, a2 / a0]
     return b, a
@@ -82,13 +82,13 @@ def plot_poles_zeros(b, a):
     return fig
 
 # Application de l'enveloppe ADSR
-def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
+def apply_adsr(signal, attack, decay, sustain, release):
     length = len(signal)
-    t = np.linspace(0, length / sample_rate, length, endpoint=False)
+    t = np.linspace(0, length / SAMPLE_RATE, length, endpoint=False)
 
-    attack_samples = int(sample_rate * attack)
-    decay_samples = int(sample_rate * decay)
-    release_samples = int(sample_rate * release)
+    attack_samples = int(SAMPLE_RATE * attack)
+    decay_samples = int(SAMPLE_RATE * decay)
+    release_samples = int(SAMPLE_RATE * release)
 
     envelope = np.zeros(length)
 
@@ -105,25 +105,25 @@ def apply_adsr(signal, sample_rate, attack, decay, sustain, release):
     return signal * envelope
 
 # Fonction pour convertir un signal numpy en fichier WAV
-def numpy_to_wav(signal, sample_rate=44100):
+def numpy_to_wav(signal):
     signal = np.int16(signal / np.max(np.abs(signal)) * 32767)
     buf = io.BytesIO()
-    wav.write(buf, sample_rate, signal)
+    wav.write(buf, SAMPLE_RATE, signal)
     buf.seek(0)
     return buf
 
 # Fonction pour appliquer une enveloppe ADSR et un LFO sur le cutoff du filtre
-def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type, sample_rate, attack, decay, sustain, release, total_duration):
-    length = int(sample_rate * total_duration)
+def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type, attack, decay, sustain, release, total_duration):
+    length = int(SAMPLE_RATE * total_duration)
     t = np.linspace(0, total_duration, length, endpoint=False)
 
     # Generate LFO
-    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration], sample_rate)
+    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration])
 
     # Generate ADSR envelope
-    attack_samples = int(sample_rate * attack)
-    decay_samples = int(sample_rate * decay)
-    release_samples = int(sample_rate * release)
+    attack_samples = int(SAMPLE_RATE * attack)
+    decay_samples = int(SAMPLE_RATE * decay)
+    release_samples = int(SAMPLE_RATE * release)
 
     envelope = np.zeros(length)
 
@@ -143,27 +143,27 @@ def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type
     return cutoff * combined
 
 # Fonction pour appliquer un filtre statique sans LFO
-def apply_static_biquad_filter(signal, cutoff, sample_rate=44100, filter_type='low', filter_q=1.0):
-    b, a = biquad(cutoff, filter_q, sample_rate, filter_type)
+def apply_static_biquad_filter(signal, cutoff, filter_type='low', filter_q=1.0):
+    b, a = biquad(cutoff, filter_q, filter_type)
     return lfilter(b, a, signal)
 
 # Appliquer le filtre biquad avec LFO modulé et résonance
-def apply_dynamic_biquad_filter(signal, cutoff_lfo, sample_rate=44100, filter_type='low', filter_q=1.0):
+def apply_dynamic_biquad_filter(signal, cutoff_lfo, filter_type='low', filter_q=1.0):
     filtered_signal = np.zeros_like(signal)
-    b, a = biquad(cutoff_lfo[0], filter_q, sample_rate, filter_type)  # Initialize filter coefficients
+    b, a = biquad(cutoff_lfo[0], filter_q, filter_type)  # Initialize filter coefficients
     zi = np.zeros(max(len(b), len(a)) - 1)  # Initialize the filter state
     for i in range(len(signal)):
         if i > 0 and cutoff_lfo[i] != cutoff_lfo[i-1]:  # Update filter coefficients if cutoff changes
-            b, a = biquad(cutoff_lfo[i], filter_q, sample_rate, filter_type)
+            b, a = biquad(cutoff_lfo[i], filter_q, filter_type)
             zi = lfilter(b, a, [0], zi=zi)[1]  # Reset the filter state when coefficients change
         filtered_signal[i], zi = lfilter(b, a, [signal[i]], zi=zi)  # Apply the filter with the current state
     return filtered_signal
 
 # Fonction pour appliquer toutes les transformations
-def apply_transformations(signal, sample_rate, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release):
-    lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type, sample_rate)
-    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, combined_cutoff, sample_rate, filter_type, filter_q)
-    adsr_signal = apply_adsr(filtered_signal, sample_rate, attack, decay, sustain, release)
+def apply_transformations(signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release):
+    lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type)
+    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, combined_cutoff, filter_type, filter_q)
+    adsr_signal = apply_adsr(filtered_signal, attack, decay, sustain, release)
     return adsr_signal
 
 # Application Streamlit
@@ -243,7 +243,7 @@ with col1:
     total_duration = sum(durations)
 with col2:
     waveform = generate_waveform(wave_type, frequencies, durations)
-    t = np.arange(len(waveform)) / 44100
+    t = np.arange(len(waveform)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t[:1000], waveform[:1000], color='blue')
     ax.set_title("Aperçu de la forme d'onde")
@@ -254,7 +254,7 @@ with col2:
 
     # Calcul et affichage de la transformée de Fourier
     fft_waveform = np.fft.fft(waveform)
-    fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / 44100)
+    fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / SAMPLE_RATE)
     fig, ax = plt.subplots()
     ax.plot(fft_freqs[:len(fft_freqs)//2], 20 * np.log10(np.abs(fft_waveform)[:len(fft_waveform)//2]), color='purple', label="FFT")
     ax.set_xlim([0, 4000])
@@ -273,7 +273,7 @@ with col3:
     lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5, help="Définissez la profondeur du LFO.")
 with col4:
     lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth, lfo_wave_type)
-    t_lfo = np.arange(len(lfo_signal)) / 44100
+    t_lfo = np.arange(len(lfo_signal)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t_lfo[:20000], lfo_signal[:20000], color='green')
     ax.set_title("Aperçu du LFO")
@@ -291,10 +291,10 @@ with col5:
     filter_q = st.slider("Résonance (Q)", 0.5, 10.0, 1.0, help="Définissez la résonance du filtre.")
 with col6:
     # Affichage de la courbe de Bode du filtre biquad
-    b, a = biquad(cutoff, filter_q, 44100, type_filter)
+    b, a = biquad(cutoff, filter_q, type_filter)
     w, h = freqz(b, a, worN=8000)
     fig, ax = plt.subplots()
-    ax.plot(0.5 * 44100 * w / np.pi, 20 * np.log10(np.abs(h)), 'b')  # Convertir en dB
+    ax.plot(0.5 * SAMPLE_RATE * w / np.pi, 20 * np.log10(np.abs(h)), 'b')  # Convertir en dB
     ax.set_xlim([0, 6000])
     ax.set_ylim([-60, 0])
     ax.set_title("Réponse en fréquence du filtre biquad")
@@ -308,8 +308,8 @@ with col6:
     st.pyplot(fig_pz)
 
     # Affichage de l'onde filtrée sans modulation du cutoff par le LFO
-    filtered_signal_static = apply_static_biquad_filter(waveform, cutoff, 44100, type_filter, filter_q)
-    t_filtered_static = np.arange(len(filtered_signal_static)) / 44100
+    filtered_signal_static = apply_static_biquad_filter(waveform, cutoff, type_filter, filter_q)
+    t_filtered_static = np.arange(len(filtered_signal_static)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t_filtered_static[1000:2000], filtered_signal_static[1000:2000], color='cyan')
     ax.set_title("Aperçu du signal filtré (Sans LFO)")
@@ -329,17 +329,17 @@ with col7:
     filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du cutoff en secondes.")
     filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du cutoff.")
     filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du cutoff en secondes.")
-    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, 44100, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, total_duration)
+    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, total_duration)
 with col8:
     fig, ax = plt.subplots()
-    t_lfo_filter = np.arange(len(combined_cutoff)) / 44100
+    t_lfo_filter = np.arange(len(combined_cutoff)) / SAMPLE_RATE
     ax.plot(t_lfo_filter, combined_cutoff, color='orange')
     ax.set_title("Aperçu du LFO et ADSR du Filtre")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence de coupure (Hz)")
     ax.legend()
     st.pyplot(fig)
-    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(waveform, combined_cutoff, sample_rate=44100, filter_type=type_filter, filter_q=filter_q)
+    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(waveform, combined_cutoff, filter_type=type_filter, filter_q=filter_q)
     fig, ax = plt.subplots()
     ax.plot(t[2000:10000], filtered_signal_lfo_adsr[2000:10000], color='orange')
     ax.set_title("Aperçu du signal filtré dynamiquement avec LFO et ADSR")
@@ -351,7 +351,7 @@ with col8:
 with col8:
     # Affichage de la transformée de Fourier du signal filtré
     fft_filtered_signal = np.fft.fft(filtered_signal_lfo_adsr)
-    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
+    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / SAMPLE_RATE)
     fig, ax = plt.subplots()
     ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], 20 * np.log10(np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2]), color='orange')
     ax.set_xlim([0, 4000])
@@ -370,7 +370,7 @@ with col9:
     sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien.")
     release = st.slider("Release (s)", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche en secondes.")
 with col10:
-    adsr_envelope = apply_adsr(np.ones_like(t), 44100, attack, decay, sustain, release)
+    adsr_envelope = apply_adsr(np.ones_like(t), attack, decay, sustain, release)
     fig, ax = plt.subplots()
     ax.plot(t[:600000], adsr_envelope[:600000], color='red')
     ax.set_title("Aperçu de l'enveloppe ADSR")
@@ -380,7 +380,7 @@ with col10:
     st.pyplot(fig)
 
 # Appliquer toutes les transformations sur le signal initial
-transformed_signal = apply_transformations(waveform, 44100, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, type_filter, filter_q, attack, decay, sustain, release)
+transformed_signal = apply_transformations(waveform, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, type_filter, filter_q, attack, decay, sustain, release)
 
 # Génération et lecture du signal final
 audio_file = numpy_to_wav(transformed_signal)
