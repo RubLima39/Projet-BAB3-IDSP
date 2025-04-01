@@ -63,7 +63,6 @@ def plot_poles_zeros(b, a):
     # Calculer les pôles et zéros
     z = np.roots(b)
     p = np.roots(a)
-    k = np.polyval(b, 1) / np.polyval(a, 1)
 
     # Tracer les pôles et zéros
     fig, ax = plt.subplots()
