@@ -48,7 +48,9 @@ def biquad(cutoff, q, sample_rate=44100, filter_type='low'):
         a0 = 1 + alpha
         a1 = -2 * np.cos(omega)
         a2 = 1 - alpha
-
+    # Rem: comme b0 et b2 sont les mêmes pour low et high, et b1 = 2*b0 pour le passe-bas et -2*b0 pour le passe-haut, 
+    # on a un zéro double en -1 pour le passe-bas et un zéro double en +1 pour le passe-haut.
+    
     # Normalisation des coefficients pour que le niveau stable soit inférieur à 1
     b = [b0 / (a0 * 10), b1 / (a0 * 10), b2 / (a0 * 10)]
     a = [1, a1 / a0, a2 / a0]
