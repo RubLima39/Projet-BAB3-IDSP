@@ -256,7 +256,7 @@ with col2:
     fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / 44100)
     fig, ax = plt.subplots()
     ax.plot(fft_freqs[:len(fft_freqs)//2], 20 * np.log10(np.abs(fft_waveform)[:len(fft_waveform)//2]), color='purple', label="FFT")
-    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
+    ax.set_xlim([0, 5000])
     ax.set_title("Transformée de Fourier")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Amplitude (dB)")
@@ -353,7 +353,7 @@ with col8:
     fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / 44100)
     fig, ax = plt.subplots()
     ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], 20 * np.log10(np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2]), color='orange')
-    ax.set_xlim([0, 20000])  # Limiter l'axe des x à 20 000 Hz
+    ax.set_xlim([0, 5000])
     ax.set_title("Transformée de Fourier du Signal Filtré avec LFO et ADSR")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Amplitude (dB)")
