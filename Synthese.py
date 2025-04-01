@@ -8,10 +8,11 @@ import io
 # Global sampling rate
 SAMPLE_RATE = 22050
 
-# Fonction pour générer des formes d'onde
-def generate_waveform(wave_type, frequencies, durations):
-    waveform = np.array([])
-    for frequency, duration in zip(frequencies, durations):
+# Fonction pour générer des formes d'onde avec superposition
+def generate_waveform(wave_type, frequencies, durations, start_times):
+    total_duration = max([start + duration for start, duration in zip(start_times, durations)])
+    waveform = np.zeros(int(SAMPLE_RATE * total_duration))
+    for frequency, duration, start_time in zip(frequencies, durations, start_times):
         t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
         if wave_type == 'Sinus':
             wave = np.sin(2 * np.pi * frequency * t)
@@ -23,13 +24,14 @@ def generate_waveform(wave_type, frequencies, durations):
             wave = np.sign(np.sin(2 * np.pi * frequency * t))
         else:
             wave = np.zeros_like(t)
-        waveform = np.concatenate((waveform, wave))
+        start_sample = int(SAMPLE_RATE * start_time)
+        waveform[start_sample:start_sample + len(wave)] += wave
     return waveform
 
 # LFO simple
 def apply_lfo(signal, rate, depth, wave_type='Sinus'):
     t = np.linspace(0, len(signal) / SAMPLE_RATE, len(signal), endpoint=False)
-    lfo = 1 + depth * generate_waveform(wave_type, [rate], [len(signal) / SAMPLE_RATE])
+    lfo = 1 + depth * generate_waveform(wave_type, [rate], [len(signal) / SAMPLE_RATE], [0])
     return signal * lfo
 
 # Fonction pour calculer les coefficients du filtre biquad
@@ -118,7 +120,7 @@ def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type
     t = np.linspace(0, total_duration, length, endpoint=False)
 
     # Generate LFO
-    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration])
+    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration], [0])
 
     # Generate ADSR envelope
     attack_samples = int(SAMPLE_RATE * attack)
@@ -173,6 +175,7 @@ st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter vot
 # Fréquences et durées des notes pour le début de "Für Elise"
 fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00]
 fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6]
+fur_elise_start_times = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6]
 
 # Notes disponibles et leurs fréquences en Hz
 notes_disponibles = """
@@ -238,12 +241,14 @@ with col1:
     wave_type = st.selectbox("Type d'onde", ["Carré", "Triangle", "Dent de scie", "Sinus"], help="Sélectionnez le type d'onde à générer.")
     notes = st.text_area("Notes (fréquences en Hz, séparées par des virgules)", ",".join(map(str, fur_elise_frequencies)), help=f"Entrez une suite de fréquences séparées par des virgules.\n{notes_disponibles}")
     durations = st.text_area("Durées (en secondes, séparées par des virgules)", ",".join(map(str, fur_elise_durations)), help="Entrez une suite de durées séparées par des virgules.")
-    frequencies = [float(freq) for freq in notes.split(',')]
-    durations = [float(dur) for dur in durations.split(',')]
-    total_duration = sum(durations)
+    start_times = st.text_area("Temps de début (en secondes, séparés par des virgules)", ",".join(map(str, fur_elise_start_times)), help="Entrez les temps de début des notes, séparés par des virgules.")
+    frequencies = [float(freq) for freq in notes.split(',') if freq.strip()]
+    durations = [float(dur) for dur in durations.split(',') if dur.strip()]
+    start_times = [float(start) for start in start_times.split(',') if start.strip()]
+    total_duration = max([start + duration for start, duration in zip(start_times, durations)])
 with col2:
     # Générer uniquement la première note pour les images
-    first_waveform = generate_waveform(wave_type, [frequencies[0]], [durations[0]])
+    first_waveform = generate_waveform(wave_type, frequencies[:1], durations[:1], start_times[:1])
     t = np.arange(len(first_waveform)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t[:1000], first_waveform[:1000], color='blue')
@@ -383,14 +388,9 @@ with col10:
 # Section Mélodie complète
 st.subheader("🎵 Jouer la Mélodie Complète")
 
-# Générer la mélodie complète
-max_duration = sum(durations)
-melody_signal = np.zeros(int(SAMPLE_RATE * max_duration))
-current_sample = 0
-for freq, dur in zip(frequencies, durations):
-    note_signal = generate_waveform(wave_type, [freq], [dur])
-    melody_signal[current_sample:current_sample + len(note_signal)] += note_signal
-    current_sample += len(note_signal)
+# Générer la mélodie complète avec superposition
+max_duration = max([start + duration for start, duration in zip(start_times, durations)])
+melody_signal = generate_waveform(wave_type, frequencies, durations, start_times)
 
 # Normaliser le signal
 melody_signal /= np.max(np.abs(melody_signal))
