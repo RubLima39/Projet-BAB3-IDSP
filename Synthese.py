@@ -349,16 +349,13 @@ with col8:
     st.pyplot(fig)
 
 with col8:
-    # Affichage de la transformée de Fourier du signal filtré
-    fft_filtered_signal = np.fft.fft(filtered_signal_lfo_adsr)
-    fft_filtered_freqs = np.fft.fftfreq(len(fft_filtered_signal), 1 / SAMPLE_RATE)
+    # Affichage du spectrogramme du signal filtré
     fig, ax = plt.subplots()
-    ax.plot(fft_filtered_freqs[:len(fft_filtered_freqs)//2], 20 * np.log10(np.abs(fft_filtered_signal)[:len(fft_filtered_signal)//2]), color='orange')
-    ax.set_xlim([0, 4000])
-    ax.set_title("Transformée de Fourier du Signal Filtré avec LFO et ADSR")
-    ax.set_xlabel("Fréquence (Hz)")
-    ax.set_ylabel("Amplitude (dB)")
-    ax.legend()
+    Pxx, freqs, bins, im = ax.specgram(filtered_signal_lfo_adsr, NFFT=1024, Fs=SAMPLE_RATE, noverlap=512, cmap='viridis')
+    ax.set_title("Spectrogramme du Signal Filtré dynamiquement")
+    ax.set_xlabel("Temps (s)")
+    ax.set_ylabel("Fréquence (Hz)")
+    fig.colorbar(im, ax=ax, label="Amplitude (dB)")
     st.pyplot(fig)
 
 # Section ADSR
