@@ -172,7 +172,7 @@ st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter vot
 
 # Fréquences et durées des notes pour le début de "Für Elise"
 fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00]
-fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6]
+fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6]
 
 # Notes disponibles et leurs fréquences en Hz
 notes_disponibles = """
@@ -242,23 +242,24 @@ with col1:
     durations = [float(dur) for dur in durations.split(',')]
     total_duration = sum(durations)
 with col2:
-    waveform = generate_waveform(wave_type, frequencies, durations)
-    t = np.arange(len(waveform)) / SAMPLE_RATE
+    # Générer uniquement la première note pour les images
+    first_waveform = generate_waveform(wave_type, [frequencies[0]], [durations[0]])
+    t = np.arange(len(first_waveform)) / SAMPLE_RATE
     fig, ax = plt.subplots()
-    ax.plot(t[:1000], waveform[:1000], color='blue')
-    ax.set_title("Aperçu de la forme d'onde")
+    ax.plot(t[:1000], first_waveform[:1000], color='blue')
+    ax.set_title("Aperçu de la forme d'onde (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
     st.pyplot(fig)
 
-    # Calcul et affichage de la transformée de Fourier
-    fft_waveform = np.fft.fft(waveform)
+    # Calcul et affichage de la transformée de Fourier pour la première note
+    fft_waveform = np.fft.fft(first_waveform)
     fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / SAMPLE_RATE)
     fig, ax = plt.subplots()
     ax.plot(fft_freqs[:len(fft_freqs)//2], 20 * np.log10(np.abs(fft_waveform)[:len(fft_waveform)//2]), color='purple', label="FFT")
     ax.set_xlim([0, 4000])
-    ax.set_title("Transformée de Fourier")
+    ax.set_title("Transformée de Fourier (Première note)")
     ax.set_xlabel("Fréquence (Hz)")
     ax.set_ylabel("Amplitude (dB)")
     ax.legend()
@@ -272,11 +273,11 @@ with col3:
     lfo_rate = st.slider("Fréquence LFO (Hz)", 0.1, 20.0, 5.0, help="Définissez la fréquence du LFO en Hertz.")
     lfo_depth = st.slider("Profondeur LFO", 0.0, 1.0, 0.5, help="Définissez la profondeur du LFO.")
 with col4:
-    lfo_signal = apply_lfo(waveform, lfo_rate, lfo_depth, lfo_wave_type)
+    lfo_signal = apply_lfo(first_waveform, lfo_rate, lfo_depth, lfo_wave_type)
     t_lfo = np.arange(len(lfo_signal)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t_lfo[:20000], lfo_signal[:20000], color='green')
-    ax.set_title("Aperçu du LFO")
+    ax.set_title("Aperçu du LFO (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
@@ -308,11 +309,11 @@ with col6:
     st.pyplot(fig_pz)
 
     # Affichage de l'onde filtrée sans modulation du cutoff par le LFO
-    filtered_signal_static = apply_static_biquad_filter(waveform, cutoff, type_filter, filter_q)
+    filtered_signal_static = apply_static_biquad_filter(first_waveform, cutoff, type_filter, filter_q)
     t_filtered_static = np.arange(len(filtered_signal_static)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t_filtered_static[1000:2000], filtered_signal_static[1000:2000], color='cyan')
-    ax.set_title("Aperçu du signal filtré (Sans LFO)")
+    ax.set_title("Aperçu du signal filtré (Première note, Sans LFO)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
@@ -329,20 +330,20 @@ with col7:
     filter_adsr_decay = st.slider("Decay (s) Filtre", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance du cutoff en secondes.")
     filter_adsr_sustain = st.slider("Sustain (niveau) Filtre", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien du cutoff.")
     filter_adsr_release = st.slider("Release (s) Filtre", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche du cutoff en secondes.")
-    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, total_duration)
+    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, durations[0])
 with col8:
     fig, ax = plt.subplots()
     t_lfo_filter = np.arange(len(combined_cutoff)) / SAMPLE_RATE
     ax.plot(t_lfo_filter, combined_cutoff, color='orange')
-    ax.set_title("Aperçu du LFO et ADSR du Filtre")
+    ax.set_title("Aperçu du LFO et ADSR du Filtre (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence de coupure (Hz)")
     ax.legend()
     st.pyplot(fig)
-    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(waveform, combined_cutoff, filter_type=type_filter, filter_q=filter_q)
+    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(first_waveform, combined_cutoff, filter_type=type_filter, filter_q=filter_q)
     fig, ax = plt.subplots()
     ax.plot(t[2000:10000], filtered_signal_lfo_adsr[2000:10000], color='orange')
-    ax.set_title("Aperçu du signal filtré dynamiquement avec LFO et ADSR")
+    ax.set_title("Aperçu du signal filtré dynamiquement avec LFO et ADSR (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
@@ -352,35 +353,58 @@ with col8:
     # Affichage du spectrogramme du signal filtré
     fig, ax = plt.subplots()
     Pxx, freqs, bins, im = ax.specgram(filtered_signal_lfo_adsr, NFFT=1024, Fs=SAMPLE_RATE, noverlap=512, cmap='viridis')
-    ax.set_title("Spectrogramme du Signal Filtré dynamiquement")
+    ax.set_title("Spectrogramme du Signal Filtré dynamiquement (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Fréquence (Hz)")
     fig.colorbar(im, ax=ax, label="Amplitude (dB)")
     st.pyplot(fig)
 
+# Calculer la durée minimale des notes
+min_note_duration = min(durations)
+
 # Section ADSR
 col9, col10 = st.columns(2)
 with col9:
     st.subheader("🎯 Enveloppe ADSR", help="L'enveloppe ADSR (Attack, Decay, Sustain, Release) module l'amplitude du signal au fil du temps.")
-    attack = st.slider("Attack (s)", 0.01, 2.0, 0.1, help="Définissez la durée de l'attaque en secondes.")
-    decay = st.slider("Decay (s)", 0.01, 2.0, 0.1, help="Définissez la durée de la décroissance en secondes.")
+    attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de l'attaque en secondes.")
+    decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de la décroissance en secondes.")
     sustain = st.slider("Sustain (niveau)", 0.0, 1.0, 0.7, help="Définissez le niveau de maintien.")
-    release = st.slider("Release (s)", 0.01, 2.0, 0.2, help="Définissez la durée de la relâche en secondes.")
+    release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, help="Définissez la durée de la relâche en secondes.")
 with col10:
     adsr_envelope = apply_adsr(np.ones_like(t), attack, decay, sustain, release)
     fig, ax = plt.subplots()
     ax.plot(t[:600000], adsr_envelope[:600000], color='red')
-    ax.set_title("Aperçu de l'enveloppe ADSR")
+    ax.set_title("Aperçu de l'enveloppe ADSR (Première note)")
     ax.set_xlabel("Temps (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
     st.pyplot(fig)
 
-# Appliquer toutes les transformations sur le signal initial
-transformed_signal = apply_transformations(waveform, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, type_filter, filter_q, attack, decay, sustain, release)
+# Section Mélodie complète
+st.subheader("🎵 Jouer la Mélodie Complète")
 
-# Génération et lecture du signal final
+# Générer la mélodie complète
+max_duration = sum(durations)
+melody_signal = np.zeros(int(SAMPLE_RATE * max_duration))
+current_sample = 0
+for freq, dur in zip(frequencies, durations):
+    note_signal = generate_waveform(wave_type, [freq], [dur])
+    melody_signal[current_sample:current_sample + len(note_signal)] += note_signal
+    current_sample += len(note_signal)
+
+# Normaliser le signal
+melody_signal /= np.max(np.abs(melody_signal))
+
+# Appliquer les transformations au signal complet
+combined_cutoff = apply_combined_adsr_lfo_to_cutoff(
+    cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
+    filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, max_duration
+)
+transformed_signal = apply_transformations(
+    melody_signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff,
+    type_filter, filter_q, attack, decay, sustain, release
+)
+
+# Générer et lire le fichier audio
 audio_file = numpy_to_wav(transformed_signal)
-
-st.subheader("🎧 Jouer le son")
 st.audio(audio_file, format="audio/wav")
