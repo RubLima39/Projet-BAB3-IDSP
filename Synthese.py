@@ -171,8 +171,8 @@ st.title("🎛️ Synthétiseur Soustractif")
 st.info("Ajustez les paramètres et cliquez sur 'Jouer le son' pour écouter votre création sonore.")
 
 # Fréquences et durées des notes pour le début de "Für Elise"
-fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00, 261.63, 329.63, 440.00, 493.88, 329.63, 415.30, 493.88, 523.25, 329.63, 659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00, 261.63, 329.63, 440.00, 493.88, 329.63, 523.25, 493.88, 440.00]
-fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 1.4]
+fur_elise_frequencies = [659.25, 622.25, 659.25, 622.25, 659.25, 493.88, 587.33, 523.25, 440.00]
+fur_elise_durations = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.2, 0.2, 0.2, 0.6]
 
 # Notes disponibles et leurs fréquences en Hz
 notes_disponibles = """
