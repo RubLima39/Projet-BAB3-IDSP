@@ -170,17 +170,20 @@ def apply_dynamic_biquad_filter(signal, cutoff_lfo, filter_type='low', filter_q=
 def apply_echo(signal, delay, decay):
     # Calculate the number of samples for the delay
     delay_samples = int(SAMPLE_RATE * delay)
-    
-    # Initialize the echo signal with the same length as the input signal
-    echo_signal = np.zeros(len(signal))
+    # Initialize the echo signal with additional space for the delay
+    echo_signal = np.zeros(len(signal) + delay_samples)
+    echo_signal[:len(signal)] = signal  # Copy the original signal
 
     # Add the delayed signal with decay
     for i in range(len(signal)):
-        echo_signal[i] = signal[i]
-        if i >= delay_samples:
-            echo_signal[i] += signal[i - delay_samples] * decay
+        if i + delay_samples < len(echo_signal):
+            echo_signal[i + delay_samples] += signal[i] * decay
 
-    return echo_signal
+    # Mix the original signal with the echo signal
+    mixed_signal = echo_signal[:len(signal)] + signal * (1 - decay)
+
+    # Return the mixed signal
+    return mixed_signal
 
 # Function to apply a Flanger effect
 def apply_flanger(signal, rate, depth):
@@ -458,7 +461,7 @@ with col11:
              "The echo signal is added to the original signal with a time offset."
     )
     echo_delay = st.slider("Delay Time (s)", 0.01, 1.0, 0.2, key="echo_delay", help="Set the echo delay time in seconds.")
-    echo_decay = st.slider("Echo Decay", 0.1, 1.0, 0.5, key="echo_decay", help="Set the echo attenuation level.")
+    echo_decay = st.slider("Echo Decay", 0.0, 1.0, 0.5, key="echo_decay", help="Set the echo attenuation level.")
 with col12:
     echo_signal = apply_echo(first_waveform, echo_delay, echo_decay)
     t_echo = np.arange(len(echo_signal)) / SAMPLE_RATE
@@ -498,34 +501,46 @@ with col14:
 # Complete Melody Section
 st.subheader("🎵 Play Complete Melody")
 
-# Generate the complete melody with transformations applied to each note separately
+# Calculate the maximum required length for the melody signal
 max_duration = max([start + duration for start, duration in zip(start_times, durations)])
 melody_signal = np.zeros(int(SAMPLE_RATE * max_duration))
 
 for freq, dur, start in zip(frequencies, durations, start_times):
-    # Generate the waveform for the note
-    note_signal = generate_waveform(wave_type, [freq], [dur], [0])
-    
-    # Apply transformations to the note
-    note_cutoff = apply_combined_adsr_lfo_to_cutoff(
-        cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
-        filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, dur
-    )
-    transformed_note = apply_transformations(
-        note_signal, lfo_rate, lfo_depth, lfo_wave_type, note_cutoff,
-        type_filter, filter_q, attack, decay, sustain, release,
-        echo_delay, echo_decay, flanger_rate, flanger_depth
-    )
-    
-    # Add the transformed note to the final signal
-    start_sample = int(SAMPLE_RATE * start)
-    end_sample = start_sample + len(transformed_note)
-    
-    # Ensure the slice fits within the melody_signal bounds
-    if end_sample > len(melody_signal):
-        transformed_note = transformed_note[:len(melody_signal) - start_sample]
-    
-    melody_signal[start_sample:start_sample + len(transformed_note)] += transformed_note
+        # Generate the waveform for the note
+        note_signal = generate_waveform(wave_type, [freq], [dur], [0])
+
+        # Apply transformations to the note
+        note_cutoff = apply_combined_adsr_lfo_to_cutoff(
+            cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
+            filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, dur
+        )
+        transformed_note = apply_transformations(
+            note_signal, lfo_rate, lfo_depth, lfo_wave_type, note_cutoff,
+            type_filter, filter_q, attack, decay, sustain, release,
+            echo_delay, echo_decay, flanger_rate, flanger_depth
+        )
+
+        # Generate the echo for the note
+        echo_signal = np.zeros_like(melody_signal)
+        echo_start_sample = int(SAMPLE_RATE * (start + echo_delay))
+        echo_end_sample = echo_start_sample + len(transformed_note)
+
+        if echo_end_sample <= len(melody_signal):
+            echo_signal[echo_start_sample:echo_end_sample] = transformed_note * echo_decay
+
+        # Add the transformed note and its echo to the final signal
+        start_sample = int(SAMPLE_RATE * start)
+        end_sample = start_sample + len(transformed_note)
+
+        if end_sample <= len(melody_signal):
+            melody_signal[start_sample:end_sample] += transformed_note
+
+        melody_signal += echo_signal
+
+# Trim the signal to remove unnecessary silence at the end
+non_zero_indices = np.nonzero(melody_signal)[0]
+if len(non_zero_indices) > 0:
+    melody_signal = melody_signal[:non_zero_indices[-1] + 1]
 
 # Normalize the final signal
 melody_signal /= np.max(np.abs(melody_signal))
