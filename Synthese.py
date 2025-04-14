@@ -10,35 +10,44 @@ SAMPLE_RATE = 22050
 
 # Function to generate waveforms with overlapping
 def generate_waveform(wave_type, frequencies, durations, start_times):
+    # Calculate the total duration of the waveform
     total_duration = max([start + duration for start, duration in zip(start_times, durations)])
-    waveform = np.zeros(int(SAMPLE_RATE * total_duration))
+    waveform = np.zeros(int(SAMPLE_RATE * total_duration))  # Initialize the waveform array
+
+    # Generate the waveform for each frequency, duration, and start time
     for frequency, duration, start_time in zip(frequencies, durations, start_times):
-        t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)
+        t = np.linspace(0, duration, int(SAMPLE_RATE * duration), endpoint=False)  # Time vector for the note
         if wave_type == 'Sine':
-            wave = np.sin(2 * np.pi * frequency * t)
+            wave = np.sin(2 * np.pi * frequency * t)  # Generate sine wave
         elif wave_type == 'Triangle':
-            wave = 2 * np.abs(2 * (t * frequency % 1) - 1) - 1
+            wave = 2 * np.abs(2 * (t * frequency % 1) - 1) - 1  # Generate triangle wave
         elif wave_type == 'Sawtooth':
-            wave = 2 * (t * frequency % 1) - 1
+            wave = 2 * (t * frequency % 1) - 1  # Generate sawtooth wave
         elif wave_type == 'Square':
-            wave = np.sign(np.sin(2 * np.pi * frequency * t))
+            wave = np.sign(np.sin(2 * np.pi * frequency * t))  # Generate square wave
         else:
-            wave = np.zeros_like(t)
+            wave = np.zeros_like(t)  # Default to silence if wave type is unknown
+
+        # Add the generated wave to the waveform at the correct start time
         start_sample = int(SAMPLE_RATE * start_time)
         waveform[start_sample:start_sample + len(wave)] += wave
+
     return waveform
 
 # Simple LFO
 def apply_lfo(signal, rate, depth, wave_type='Sine'):
-    t = np.linspace(0, len(signal) / SAMPLE_RATE, len(signal), endpoint=False)
+    # Generate the LFO waveform
     lfo = 1 + depth * generate_waveform(wave_type, [rate], [len(signal) / SAMPLE_RATE], [0])
+    # Modulate the signal amplitude using the LFO
     return signal * lfo
 
 # Function to calculate biquad filter coefficients
 def biquad(cutoff, q, filter_type='low'):
+    # Calculate normalized frequency and alpha for the filter
     omega = 2 * np.pi * cutoff / SAMPLE_RATE
     alpha = np.sin(omega) / (2 * q)
 
+    # Calculate coefficients for low-pass or high-pass filter
     if filter_type == 'low':
         b0 = (1 - np.cos(omega)) / 2
         b1 = 1 - np.cos(omega)
@@ -53,27 +62,25 @@ def biquad(cutoff, q, filter_type='low'):
         a0 = 1 + alpha
         a1 = -2 * np.cos(omega)
         a2 = 1 - alpha
-    # Note: Since b0 = b2, and b1 = 2*b0 for low-pass and b1 = -2*b0 for high-pass,
-    # there will be a double zero at -1 for low-pass and a double zero at 1 for high-pass.
 
+    # Normalize coefficients
     b = [b0 / (a0 * 10), b1 / (a0 * 10), b2 / (a0 * 10)]
     a = [1, a1 / a0, a2 / a0]
     return b, a
 
 # Function to plot poles and zeros of the filter
 def plot_poles_zeros(b, a):
-    from matplotlib import patches
-
-    # Calculate poles and zeros
+    # Calculate poles and zeros of the filter
     z = np.roots(b)
     p = np.roots(a)
 
-    # Plot poles and zeros
+    # Plot the poles and zeros on the complex plane
+    from matplotlib import patches
     fig, ax = plt.subplots()
     unit_circle = patches.Circle((0, 0), radius=1, fill=False, color='black', ls='dotted')
     ax.add_patch(unit_circle)
-    ax.plot(np.real(z), np.imag(z), 'go', label='Zeros')
-    ax.plot(np.real(p), np.imag(p), 'rx', label='Poles')
+    ax.plot(np.real(z), np.imag(z), 'go', label='Zeros')  # Plot zeros
+    ax.plot(np.real(p), np.imag(p), 'rx', label='Poles')  # Plot poles
     ax.set_xlim((-1.5, 1.5))
     ax.set_ylim((-1.5, 1.5))
     ax.axhline(0, color='black', lw=0.5)
@@ -87,25 +94,22 @@ def plot_poles_zeros(b, a):
 
 # Apply ADSR envelope
 def apply_adsr(signal, attack, decay, sustain, release):
-    length = len(signal)
-    t = np.linspace(0, length / SAMPLE_RATE, length, endpoint=False)
-
+    # Calculate the number of samples for each ADSR phase
     attack_samples = int(SAMPLE_RATE * attack)
     decay_samples = int(SAMPLE_RATE * decay)
     release_samples = int(SAMPLE_RATE * release)
 
-    envelope = np.zeros(length)
+    # Initialize the envelope
+    envelope = np.zeros(len(signal))
 
-    # Attack
-    envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
-    # Decay
+    # Generate the ADSR envelope
+    envelope[:attack_samples] = np.linspace(0, 1, attack_samples)  # Attack phase
     decay_end = attack_samples + decay_samples
-    envelope[attack_samples:decay_end] = np.linspace(1, sustain, decay_samples)
-    # Sustain
-    envelope[decay_end:length - release_samples] = sustain
-    # Release
-    envelope[length - release_samples:] = np.linspace(sustain, 0, release_samples)
+    envelope[attack_samples:decay_end] = np.linspace(1, sustain, decay_samples)  # Decay phase
+    envelope[decay_end:len(signal) - release_samples] = sustain  # Sustain phase
+    envelope[len(signal) - release_samples:] = np.linspace(sustain, 0, release_samples)  # Release phase
 
+    # Apply the envelope to the signal
     return signal * envelope
 
 # Function to convert a numpy signal to a WAV file
@@ -119,7 +123,6 @@ def numpy_to_wav(signal):
 # Function to apply an ADSR envelope and an LFO to the filter cutoff
 def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type, attack, decay, sustain, release, total_duration):
     length = int(SAMPLE_RATE * total_duration)
-    t = np.linspace(0, total_duration, length, endpoint=False)
 
     # Generate LFO
     lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration], [0])
@@ -151,7 +154,7 @@ def apply_static_biquad_filter(signal, cutoff, filter_type='low', filter_q=1.0):
     b, a = biquad(cutoff, filter_q, filter_type)
     return lfilter(b, a, signal)
 
-# Apply biquad filter with modulated LFO and resonance
+# Apply biquad filter with modulated cutoff
 def apply_dynamic_biquad_filter(signal, cutoff_lfo, filter_type='low', filter_q=1.0):
     filtered_signal = np.zeros_like(signal)
     b, a = biquad(cutoff_lfo[0], filter_q, filter_type)  # Initialize filter coefficients
@@ -165,34 +168,47 @@ def apply_dynamic_biquad_filter(signal, cutoff_lfo, filter_type='low', filter_q=
 
 # Function to apply an Echo effect
 def apply_echo(signal, delay, decay):
+    # Calculate the number of samples for the delay
     delay_samples = int(SAMPLE_RATE * delay)
-    echo_signal = np.zeros(len(signal) + delay_samples)
-    echo_signal[:len(signal)] = signal
+    
+    # Initialize the echo signal with the same length as the input signal
+    echo_signal = np.zeros(len(signal))
+
+    # Add the delayed signal with decay
     for i in range(len(signal)):
-        if i + delay_samples < len(echo_signal):
-            echo_signal[i + delay_samples] += signal[i] * decay
-    return echo_signal[:len(signal)]
+        echo_signal[i] = signal[i]
+        if i >= delay_samples:
+            echo_signal[i] += signal[i - delay_samples] * decay
+
+    return echo_signal
 
 # Function to apply a Flanger effect
 def apply_flanger(signal, rate, depth):
+    # Initialize the flanged signal
     flanged_signal = np.zeros_like(signal)
+    # Calculate the maximum delay in samples
     max_delay_samples = int(SAMPLE_RATE * depth)
-    t = np.arange(len(signal)) / SAMPLE_RATE
-    lfo = (np.sin(2 * np.pi * rate * t) + 1) / 2  # LFO oscillates between 0 and 1
+    # Generate the LFO for the flanger
+    lfo = (np.sin(2 * np.pi * rate * np.arange(len(signal)) / SAMPLE_RATE) + 1) / 2  # LFO oscillates between 0 and 1
+
+    # Apply the flanger effect
     for i in range(len(signal)):
-        delay_samples = int(lfo[i] * max_delay_samples)
+        delay_samples = int(lfo[i] * max_delay_samples)  # Calculate the delay for the current sample
         if i - delay_samples >= 0:
-            flanged_signal[i] = signal[i] + signal[i - delay_samples]
+            flanged_signal[i] = signal[i] + signal[i - delay_samples]  # Add delayed signal
         else:
-            flanged_signal[i] = signal[i]
+            flanged_signal[i] = signal[i]  # No delay for the first samples
+
     return flanged_signal
 
 # Function to apply all transformations
-def apply_transformations(signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release):
+def apply_transformations(signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release, echo_delay, echo_decay, flanger_rate, flanger_depth):
     lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type)
     filtered_signal = apply_dynamic_biquad_filter(lfo_signal, combined_cutoff, filter_type, filter_q)
     adsr_signal = apply_adsr(filtered_signal, attack, decay, sustain, release)
-    return adsr_signal
+    echo_signal = apply_echo(adsr_signal, echo_delay, echo_decay)
+    flanger_signal = apply_flanger(echo_signal, flanger_rate, flanger_depth)
+    return flanger_signal
 
 # Streamlit Application
 st.title("🎛️ Subtractive Synthesizer")
@@ -497,10 +513,9 @@ for freq, dur, start in zip(frequencies, durations, start_times):
     )
     transformed_note = apply_transformations(
         note_signal, lfo_rate, lfo_depth, lfo_wave_type, note_cutoff,
-        type_filter, filter_q, attack, decay, sustain, release
+        type_filter, filter_q, attack, decay, sustain, release,
+        echo_delay, echo_decay, flanger_rate, flanger_depth
     )
-    transformed_note = apply_echo(transformed_note, echo_delay, echo_decay)
-    transformed_note = apply_flanger(transformed_note, flanger_rate, flanger_depth)
     
     # Add the transformed note to the final signal
     start_sample = int(SAMPLE_RATE * start)
