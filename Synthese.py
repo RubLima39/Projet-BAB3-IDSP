@@ -457,7 +457,7 @@ with col11:
         help="Add an echo effect to the signal.\n\n"
              "This function adds an echo effect to the input signal.\n"
              "- `delay` : Echo delay time in seconds.\n"
-             "- `decay` : Echo attenuation (multiplicative factor).\n"
+             "- `decay` : Echo attenuation (multiplicative factor).\n\n"
              "The echo signal is added to the original signal with a time offset."
     )
     echo_delay = st.slider("Delay Time (s)", 0.01, 1.0, 0.2, key="echo_delay", help="Set the echo delay time in seconds.")
@@ -481,7 +481,7 @@ with col13:
         help="Add a flanger effect to the signal.\n\n"
              "This function adds a flanger effect to the input signal.\n"
              "- `frequency` : LFO frequency (low-frequency oscillator) in Hertz.\n"
-             "- `depth` : Maximum delay depth in seconds.\n"
+             "- `depth` : Maximum delay depth in seconds.\n\n"
              "The flanger uses an LFO to dynamically modulate the time delay "
              "applied to the signal, creating a sweeping effect."
     )
