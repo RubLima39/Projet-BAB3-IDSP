@@ -295,9 +295,9 @@ biquad_filter = """
     """
 
 # VCO Section
+st.subheader("🎚️ Voltage-Controlled Oscillator (VCO)", help="The voltage-controlled oscillator (VCO) generates basic waveforms.")
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("🎚️ Voltage-Controlled Oscillator (VCO)", help="The voltage-controlled oscillator (VCO) generates basic waveforms.")
     wave_type = st.selectbox("Wave Type", ["Square", "Triangle", "Sawtooth", "Sine"], help="Select the type of waveform to generate.")
     notes = st.text_area("Notes (frequencies in Hz, separated by commas)", ",".join(map(str, fur_elise_frequencies)), help=f"Enter a sequence of frequencies separated by commas.\n{available_notes}")
     durations = st.text_area("Durations (in seconds, separated by commas)", ",".join(map(str, fur_elise_durations)), help="Enter a sequence of durations separated by commas.")
@@ -331,9 +331,9 @@ with col2:
     st.pyplot(fig)
 
 # Tremolo Section
+st.subheader("<h2 style='text-align: center;'>🔄 Tremolo LFO", help="The LFO (Low Frequency Oscillator) of the tremolo modulates the signal amplitude.")
 col3, col4 = st.columns(2)
 with col3:
-    st.subheader("🔄 Tremolo LFO", help="The LFO (Low Frequency Oscillator) of the tremolo modulates the signal amplitude.")
     lfo_wave_type = st.selectbox("LFO Wave Type", ["Sine", "Triangle", "Sawtooth", "Square"], key="lfo_wave_type", help="Select the waveform type for the LFO.")
     lfo_rate = st.slider("LFO Frequency (Hz)", 0.1, 20.0, 5.0, key="lfo_rate", help="Set the LFO frequency in Hertz.")
     lfo_depth = st.slider("LFO Depth", 0.0, 1.0, 0.5, key="lfo_depth", help="Set the LFO depth.")
@@ -353,9 +353,9 @@ with col4:
     st.pyplot(fig)
 
 # Filter Section
+st.subheader("🎛️ Filter", help="The filter modifies the frequency spectrum of the signal."+biquad_filter)
 col5, col6 = st.columns(2)
 with col5:
-    st.subheader("🎛️ Filter", help="The filter modifies the frequency spectrum of the signal."+biquad_filter)
     type_filter = st.selectbox("Filter Type", ["low", "high"], help="Select the filter type (low-pass or high-pass).")
     cutoff = st.slider("Average Cutoff Frequency (Hz)", 20, 4000, 1000, help="Set the filter cutoff frequency in Hertz.")
     filter_q = st.slider("Resonance (Q)", 0.5, 10.0, 1.0, help="Set the filter resonance.")
@@ -392,9 +392,9 @@ with col6:
 min_note_duration = min(durations)
 
 # Filter LFO and ADSR Section
+st.subheader("🔄 LFO and ADSR on Filter Cutoff Frequency", help="The LFO and ADSR envelope of the filter modulate the filter cutoff frequency.")
 col7, col8 = st.columns(2)
 with col7:
-    st.subheader("🔄 LFO and ADSR on Filter Cutoff Frequency", help="The LFO and ADSR envelope of the filter modulate the filter cutoff frequency.")
     filter_lfo_wave_type = st.selectbox("Filter LFO Wave Type", ["Sine", "Triangle", "Sawtooth", "Square"], key="filter_lfo_wave_type", help="Select the waveform type for the filter cutoff LFO.")
     filter_lfo_rate = st.slider("Filter LFO Frequency (Hz)", 0.1, 10.0, 2.0, key="filter_lfo_rate", help="Set the filter cutoff LFO frequency in Hertz.")
     filter_lfo_depth = st.slider("Filter LFO Depth", 0.0, 1.0, 0.3, key="filter_lfo_depth", help="Set the filter cutoff LFO depth.")
@@ -432,9 +432,9 @@ with col8:
     st.pyplot(fig)
 
 # ADSR Section
+st.subheader("🎯 ADSR Envelope", help="The ADSR envelope (Attack, Decay, Sustain, Release) modulates the signal amplitude over time.")
 col9, col10 = st.columns(2)
 with col9:
-    st.subheader("🎯 ADSR Envelope", help="The ADSR envelope (Attack, Decay, Sustain, Release) modulates the signal amplitude over time.")
     attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_attack", help="Set the attack duration in seconds.")
     decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_decay", help="Set the decay duration in seconds.")
     sustain = st.slider("Sustain (level)", 0.0, 1.0, 0.7, key="adsr_sustain", help="Set the sustain level.")
@@ -450,16 +450,15 @@ with col10:
     st.pyplot(fig)
 
 # Echo Section
-col11, col12 = st.columns(2)
-with col11:
-    st.subheader(
+st.subheader(
         "🔊 Echo Effect", 
         help="Add an echo effect to the signal.\n\n"
              "This function adds an echo effect to the input signal.\n"
              "- `delay` : Echo delay time in seconds.\n"
              "- `decay` : Echo attenuation (multiplicative factor).\n\n"
-             "The echo signal is added to the original signal with a time offset."
-    )
+             "The echo signal is added to the original signal with a time offset.")
+col11, col12 = st.columns(2)
+with col11:
     echo_delay = st.slider("Delay Time (s)", 0.01, 1.0, 0.2, key="echo_delay", help="Set the echo delay time in seconds.")
     echo_decay = st.slider("Echo Decay", 0.0, 1.0, 0.5, key="echo_decay", help="Set the echo attenuation level.")
 with col12:
@@ -474,17 +473,16 @@ with col12:
     st.pyplot(fig)
 
 # Flanger Section
-col13, col14 = st.columns(2)
-with col13:
-    st.subheader(
+st.subheader(
         "🔄 Flanger Effect", 
         help="Add a flanger effect to the signal.\n\n"
              "This function adds a flanger effect to the input signal.\n"
              "- `frequency` : LFO frequency (low-frequency oscillator) in Hertz.\n"
              "- `depth` : Maximum delay depth in seconds.\n\n"
              "The flanger uses an LFO to dynamically modulate the time delay "
-             "applied to the signal, creating a sweeping effect."
-    )
+             "applied to the signal, creating a sweeping effect.")
+col13, col14 = st.columns(2)
+with col13:
     flanger_rate = st.slider("Flanger LFO Frequency (Hz)", 0.1, 5.0, 0.5, key="flanger_rate", help="Set the LFO frequency for the flanger.")
     flanger_depth = st.slider("Flanger Depth (s)", 0.0, 0.05, 0.0, key="flanger_depth", help="Set the flanger depth in seconds.")
 with col14:
