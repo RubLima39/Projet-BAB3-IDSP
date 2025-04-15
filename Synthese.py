@@ -213,6 +213,13 @@ def apply_transformations(signal, lfo_rate, lfo_depth, lfo_wave_type, combined_c
     flanger_signal = apply_flanger(echo_signal, flanger_rate, flanger_depth)
     return flanger_signal
 
+# Function to create centered subheaders with expandable descriptions
+def centered_subheader_with_help(title, help_text):
+    st.markdown(f"<h2 style='text-align: center;'>{title}</h2>", unsafe_allow_html=True)
+    if help_text:
+        with st.expander("ℹ️ Description"):
+            st.markdown(help_text)
+
 # Streamlit Application
 st.title("🎛️ Subtractive Synthesizer")
 st.info("Adjust the parameters and click 'Play Sound' to listen to your sound creation.")
@@ -295,7 +302,7 @@ biquad_filter = """
     """
 
 # VCO Section
-st.subheader("🎚️ Voltage-Controlled Oscillator (VCO)", help="The voltage-controlled oscillator (VCO) generates basic waveforms.")
+centered_subheader_with_help("🎚️ Voltage-Controlled Oscillator (VCO)", "The voltage-controlled oscillator (VCO) generates basic waveforms.")
 col1, col2 = st.columns(2)
 with col1:
     wave_type = st.selectbox("Wave Type", ["Square", "Triangle", "Sawtooth", "Sine"], help="Select the type of waveform to generate.")
@@ -308,7 +315,7 @@ with col1:
     total_duration = max([start + duration for start, duration in zip(start_times, durations)])
 with col2:
     # Generate only the first note for images
-    first_waveform = generate_waveform(wave_type, frequencies[:1], durations[:1], start_times[:1])
+    first_waveform = generate_waveform(wave_type, frequencies[:1], [durations[0] * 5], start_times[:1])
     t = np.arange(len(first_waveform)) / SAMPLE_RATE
     fig, ax = plt.subplots()
     ax.plot(t[:1000], first_waveform[:1000], color='blue')
@@ -330,8 +337,10 @@ with col2:
     ax.legend()
     st.pyplot(fig)
 
+st.audio(numpy_to_wav(first_waveform), format="audio/wav", start_time=0)
+
 # Tremolo Section
-st.subheader("<h2 style='text-align: center;'>🔄 Tremolo LFO", help="The LFO (Low Frequency Oscillator) of the tremolo modulates the signal amplitude.")
+centered_subheader_with_help("🔄 Tremolo LFO", "The LFO (Low Frequency Oscillator) of the tremolo modulates the signal amplitude.")
 col3, col4 = st.columns(2)
 with col3:
     lfo_wave_type = st.selectbox("LFO Wave Type", ["Sine", "Triangle", "Sawtooth", "Square"], key="lfo_wave_type", help="Select the waveform type for the LFO.")
@@ -352,8 +361,11 @@ with col4:
     ax.legend()
     st.pyplot(fig)
 
+tremolo_signal = apply_lfo(first_waveform, lfo_rate, lfo_depth, lfo_wave_type)
+st.audio(numpy_to_wav(tremolo_signal), format="audio/wav", start_time=0)
+
 # Filter Section
-st.subheader("🎛️ Filter", help="The filter modifies the frequency spectrum of the signal."+biquad_filter)
+centered_subheader_with_help("🎛️ Static Filter", "The filter modifies the frequency spectrum of the signal." + biquad_filter)
 col5, col6 = st.columns(2)
 with col5:
     type_filter = st.selectbox("Filter Type", ["low", "high"], help="Select the filter type (low-pass or high-pass).")
@@ -388,11 +400,13 @@ with col6:
     ax.legend()
     st.pyplot(fig)
 
+st.audio(numpy_to_wav(filtered_signal_static), format="audio/wav", start_time=0)
+
 # Compute the minimum note duration
 min_note_duration = min(durations)
 
 # Filter LFO and ADSR Section
-st.subheader("🔄 LFO and ADSR on Filter Cutoff Frequency", help="The LFO and ADSR envelope of the filter modulate the filter cutoff frequency.")
+centered_subheader_with_help("🔄 Dynamic filter", "The LFO and ADSR envelope of the filter modulate the filter cutoff frequency.")
 col7, col8 = st.columns(2)
 with col7:
     filter_lfo_wave_type = st.selectbox("Filter LFO Wave Type", ["Sine", "Triangle", "Sawtooth", "Square"], key="filter_lfo_wave_type", help="Select the waveform type for the filter cutoff LFO.")
@@ -402,25 +416,45 @@ with col7:
     filter_adsr_decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_decay", help="Set the decay duration in seconds.")
     filter_adsr_sustain = st.slider("Sustain (level) Filter", 0.0, 1.0, 0.7, key="filter_adsr_sustain", help="Set the filter cutoff sustain level.")
     filter_adsr_release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_release", help="Set the filter cutoff release duration.")
-    combined_cutoff = apply_combined_adsr_lfo_to_cutoff(cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type, filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, durations[0])
+    
+    # Generate combined cutoff for the graph (original note duration)
+    original_duration = durations[0]  # Use the original duration of the first note
+    combined_cutoff_graph = apply_combined_adsr_lfo_to_cutoff(
+        cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
+        filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release,
+        original_duration
+    )
 with col8:
+    # Plot the combined cutoff for the graph
+    t_lfo_filter_graph = np.linspace(0, original_duration, len(combined_cutoff_graph), endpoint=False)
     fig, ax = plt.subplots()
-    t_lfo_filter = np.arange(len(combined_cutoff)) / SAMPLE_RATE
-    ax.plot(t_lfo_filter, combined_cutoff, color='orange')
+    ax.plot(t_lfo_filter_graph, combined_cutoff_graph, color='orange')
     ax.set_title("Preview of Filter LFO and ADSR (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Cutoff Frequency (Hz)")
     ax.legend()
     st.pyplot(fig)
-    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(first_waveform, combined_cutoff, filter_type=type_filter, filter_q=filter_q)
+
+    # Adjust combined cutoff for audio playback (multiplied by 5)
+    combined_cutoff_audio = apply_combined_adsr_lfo_to_cutoff(
+        cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
+        filter_adsr_attack * 5, filter_adsr_decay * 5, filter_adsr_sustain, filter_adsr_release * 5,
+        len(first_waveform) / SAMPLE_RATE
+    )
+    filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(
+        first_waveform, combined_cutoff_audio, filter_type=type_filter, filter_q=filter_q
+    )
+
+    # Plot the time-domain graph of the dynamically filtered signal
+    t_filtered_signal = np.arange(len(filtered_signal_lfo_adsr)) / SAMPLE_RATE
     fig, ax = plt.subplots()
-    ax.plot(t[2000:10000], filtered_signal_lfo_adsr[2000:10000], color='orange')
+    ax.plot(t_filtered_signal[:10000], filtered_signal_lfo_adsr[:10000], color='orange')
     ax.set_title("Preview of Dynamically Filtered Signal with LFO and ADSR (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
     st.pyplot(fig)
-
+    
     # Display the spectrogram of the filtered signal
     fig, ax = plt.subplots()
     Pxx, freqs, bins, im = ax.specgram(filtered_signal_lfo_adsr, NFFT=1024, Fs=SAMPLE_RATE, noverlap=512, cmap='viridis')
@@ -431,8 +465,10 @@ with col8:
     fig.colorbar(im, ax=ax, label="Amplitude (dB)")
     st.pyplot(fig)
 
+st.audio(numpy_to_wav(filtered_signal_lfo_adsr), format="audio/wav", start_time=0)
+
 # ADSR Section
-st.subheader("🎯 ADSR Envelope", help="The ADSR envelope (Attack, Decay, Sustain, Release) modulates the signal amplitude over time.")
+centered_subheader_with_help("🎯 ADSR Envelope", "The ADSR envelope (Attack, Decay, Sustain, Release) modulates the signal amplitude over time.")
 col9, col10 = st.columns(2)
 with col9:
     attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_attack", help="Set the attack duration in seconds.")
@@ -440,47 +476,79 @@ with col9:
     sustain = st.slider("Sustain (level)", 0.0, 1.0, 0.7, key="adsr_sustain", help="Set the sustain level.")
     release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="adsr_release", help="Set the release duration in seconds.")
 with col10:
-    adsr_envelope = apply_adsr(np.ones_like(t), attack, decay, sustain, release)
+    # Generate the ADSR envelope for the graph (original note duration)
+    original_duration = durations[0]  # Use the original duration of the first note
+    t_graph = np.linspace(0, original_duration, int(SAMPLE_RATE * original_duration), endpoint=False)
+    adsr_envelope = apply_adsr(np.ones_like(t_graph), attack, decay, sustain, release)
     fig, ax = plt.subplots()
-    ax.plot(t[:600000], adsr_envelope[:600000], color='red')
+    ax.plot(t_graph, adsr_envelope, color='red')
     ax.set_title("Preview of ADSR Envelope (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
     ax.legend()
     st.pyplot(fig)
 
+    # Adjust ADSR parameters for audio playback (multiplied by 5)
+    adjusted_attack = attack * 5
+    adjusted_decay = decay * 5
+    adjusted_release = release * 5
+    adsr_signal_audio = apply_adsr(first_waveform, adjusted_attack, adjusted_decay, sustain, adjusted_release)
+    
+st.audio(numpy_to_wav(adsr_signal_audio), format="audio/wav", start_time=0)
+
 # Echo Section
-st.subheader(
-        "🔊 Echo Effect", 
-        help="Add an echo effect to the signal.\n\n"
-             "This function adds an echo effect to the input signal.\n"
-             "- `delay` : Echo delay time in seconds.\n"
-             "- `decay` : Echo attenuation (multiplicative factor).\n\n"
-             "The echo signal is added to the original signal with a time offset.")
+centered_subheader_with_help(
+    "🔊 Echo Effect", 
+    "Add an echo effect to the signal.\n\n"
+    "This function adds an echo effect to the input signal.\n"
+    "- `delay` : Echo delay time in seconds.\n"
+    "- `decay` : Echo attenuation (multiplicative factor).\n\n"
+    "The echo signal is added to the original signal with a time offset."
+)
 col11, col12 = st.columns(2)
 with col11:
     echo_delay = st.slider("Delay Time (s)", 0.01, 1.0, 0.2, key="echo_delay", help="Set the echo delay time in seconds.")
     echo_decay = st.slider("Echo Decay", 0.0, 1.0, 0.5, key="echo_decay", help="Set the echo attenuation level.")
 with col12:
-    echo_signal = apply_echo(first_waveform, echo_delay, echo_decay)
+    # Adjust the original waveform to match the duration of the first note
+    first_note_duration_samples = int(SAMPLE_RATE * durations[0])
+    first_waveform_trimmed = first_waveform[:first_note_duration_samples]
+
+    # Generate the echo signal
+    delay_samples = int(SAMPLE_RATE * echo_delay)
+    echo_signal = np.zeros(len(first_waveform_trimmed) + delay_samples)
+    echo_signal[:len(first_waveform_trimmed)] = first_waveform_trimmed
+    echo_signal[delay_samples:delay_samples + len(first_waveform_trimmed)] += first_waveform_trimmed * echo_decay
+
+    # Time vector for plotting
     t_echo = np.arange(len(echo_signal)) / SAMPLE_RATE
+
+    # Plot the original signal and the echo
     fig, ax = plt.subplots()
-    ax.plot(t_echo[:2000], echo_signal[:2000], color='blue')
+    ax.plot(t_echo[:len(first_waveform_trimmed)], first_waveform_trimmed, color='blue', label="Original Signal")
+    ax.plot(t_echo[delay_samples:delay_samples + len(first_waveform_trimmed)], first_waveform_trimmed * echo_decay, color='red', label="Echo Signal")
     ax.set_title("Preview of Signal with Echo (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
+    ax.set_xlim([0, durations[0] + echo_delay + 0.1])  # Add a small margin for better visualization
+    ax.grid()
     ax.legend()
     st.pyplot(fig)
 
+# Add audio playback for the echo effect
+echo_audio_duration = durations[0] + echo_delay
+st.audio(numpy_to_wav(echo_signal[:int(SAMPLE_RATE * echo_audio_duration)]), format="audio/wav", start_time=0)
+
 # Flanger Section
-st.subheader(
-        "🔄 Flanger Effect", 
-        help="Add a flanger effect to the signal.\n\n"
-             "This function adds a flanger effect to the input signal.\n"
-             "- `frequency` : LFO frequency (low-frequency oscillator) in Hertz.\n"
-             "- `depth` : Maximum delay depth in seconds.\n\n"
-             "The flanger uses an LFO to dynamically modulate the time delay "
-             "applied to the signal, creating a sweeping effect.")
+centered_subheader_with_help(
+    "🔄 Flanger Effect", 
+    "Add a flanger effect to the signal.\n\n"
+    "This function adds a flanger effect to the input signal.\n"
+    "- `frequency` : LFO frequency (low-frequency oscillator) in Hertz.\n"
+    "- `depth` : Maximum delay depth in seconds.\n\n"
+    "The flanger uses an LFO to dynamically modulate the time delay "
+    "applied to the signal, creating a sweeping effect."
+)
 col13, col14 = st.columns(2)
 with col13:
     flanger_rate = st.slider("Flanger LFO Frequency (Hz)", 0.1, 5.0, 0.5, key="flanger_rate", help="Set the LFO frequency for the flanger.")
@@ -496,8 +564,10 @@ with col14:
     ax.legend()
     st.pyplot(fig)
 
+st.audio(numpy_to_wav(flanger_signal), format="audio/wav", start_time=0)
+
 # Complete Melody Section
-st.subheader("🎵 Play Complete Melody")
+centered_subheader_with_help("🎵 Play Complete Melody", "")
 
 # Calculate the maximum required length for the melody signal
 max_duration = max([start + duration for start, duration in zip(start_times, durations)])
