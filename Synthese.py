@@ -94,6 +94,13 @@ def plot_poles_zeros(b, a):
 
 # Apply ADSR envelope
 def apply_adsr(signal, attack, decay, sustain, release):
+    # Calculate the total duration of the signal in seconds
+    total_duration = len(signal) / SAMPLE_RATE
+
+    # Ensure A + D + R does not exceed the total duration
+    if attack + decay + release > total_duration:
+        release = max(0, total_duration - (attack + decay))  # Adjust release to fit within the total duration
+
     # Calculate the number of samples for each ADSR phase
     attack_samples = int(SAMPLE_RATE * attack)
     decay_samples = int(SAMPLE_RATE * decay)
