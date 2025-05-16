@@ -365,7 +365,6 @@ with col4:
     ax.set_title("Signal Max Amplitude Modulated by LFO (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Signal Max Amplitude")
-    ax.legend()
     st.pyplot(fig)
 
 tremolo_signal = apply_lfo(first_waveform, lfo_rate, lfo_depth, lfo_wave_type)
