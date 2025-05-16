@@ -515,7 +515,7 @@ centered_subheader_with_help(
 col11, col12 = st.columns(2)
 with col11:
     echo_delay = st.slider("Delay Time (s)", 0.01, 1.0, 0.2, key="echo_delay", help="Set the echo delay time in seconds.")
-    echo_decay = st.slider("Echo Decay", 0.0, 1.0, 0.5, key="echo_decay", help="Set the echo attenuation level.")
+    echo_decay = st.slider("Echo Decay", 0.0, 1.0, 0.0, key="echo_decay", help="Set the echo attenuation level.")
 with col12:
     # Adjust the original waveform to match the duration of the first note
     first_note_duration_samples = int(SAMPLE_RATE * durations[0])
