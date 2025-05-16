@@ -419,10 +419,10 @@ with col7:
     filter_lfo_wave_type = st.selectbox("Filter LFO Wave Type", ["Sine", "Triangle", "Sawtooth", "Square"], key="filter_lfo_wave_type", help="Select the waveform type for the filter cutoff LFO.")
     filter_lfo_rate = st.slider("Filter LFO Frequency (Hz)", 0.1, 10.0, 2.0, key="filter_lfo_rate", help="Set the filter cutoff LFO frequency in Hertz.")
     filter_lfo_depth = st.slider("Filter LFO Depth", 0.0, 1.0, 0.3, key="filter_lfo_depth", help="Set the filter cutoff LFO depth.")
-    filter_adsr_attack = st.slider("Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_attack", help="Set the attack duration in seconds.")
-    filter_adsr_decay = st.slider("Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_decay", help="Set the decay duration in seconds.")
-    filter_adsr_sustain = st.slider("Sustain (level) Filter", 0.0, 1.0, 0.7, key="filter_adsr_sustain", help="Set the filter cutoff sustain level.")
-    filter_adsr_release = st.slider("Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_release", help="Set the filter cutoff release duration.")
+    filter_adsr_attack = st.slider("Filter Attack (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_attack", help="Set the attack duration in seconds.")
+    filter_adsr_decay = st.slider("Filter Decay (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_decay", help="Set the decay duration in seconds.")
+    filter_adsr_sustain = st.slider("Filter Sustain (level)", 0.0, 1.0, 0.7, key="filter_adsr_sustain", help="Set the filter cutoff sustain level.")
+    filter_adsr_release = st.slider("Filter Release (s)", 0.01, min_note_duration / 2, min_note_duration * 0.1, key="filter_adsr_release", help="Set the filter cutoff release duration.")
     
     # Generate combined cutoff for the graph (original note duration)
     original_duration = durations[0]  # Use the original duration of the first note
