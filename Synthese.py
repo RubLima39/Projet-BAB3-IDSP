@@ -130,31 +130,14 @@ def numpy_to_wav(signal):
 # Function to apply an ADSR envelope and an LFO to the filter cutoff
 def apply_combined_adsr_lfo_to_cutoff(cutoff, lfo_rate, lfo_depth, lfo_wave_type, attack, decay, sustain, release, total_duration):
     length = int(SAMPLE_RATE * total_duration)
-
-    # Generate LFO
-    lfo = 1 + lfo_depth * generate_waveform(lfo_wave_type, [lfo_rate], [total_duration], [0])
-
-    # Generate ADSR envelope
-    attack_samples = int(SAMPLE_RATE * attack)
-    decay_samples = int(SAMPLE_RATE * decay)
-    release_samples = int(SAMPLE_RATE * release)
-
-    envelope = np.zeros(length)
-
-    # Attack
-    envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
-    # Decay
-    decay_end = attack_samples + decay_samples
-    envelope[attack_samples:decay_end] = np.linspace(1, sustain, decay_samples)
-    # Sustain
-    envelope[decay_end:length - release_samples] = sustain
-    # Release
-    envelope[length - release_samples:] = np.linspace(sustain, 0, release_samples)
-
-    # Combine LFO and ADSR
-    combined = lfo * envelope
-
-    return cutoff * combined
+    # Create a constant signal at 1 for modulation
+    base = np.ones(length)
+    # Apply ADSR to the constant signal
+    envelope = apply_adsr(base, attack, decay, sustain, release)
+    # Apply LFO to the envelope
+    lfo_enveloped = apply_lfo(envelope, lfo_rate, lfo_depth, lfo_wave_type)
+    # Multiply by the cutoff value
+    return cutoff * lfo_enveloped
 
 # Function to apply a static filter without LFO
 def apply_static_biquad_filter(signal, cutoff, filter_type='low', filter_q=1.0):
@@ -450,16 +433,6 @@ with col8:
     filtered_signal_lfo_adsr = apply_dynamic_biquad_filter(
         first_waveform, combined_cutoff_audio, filter_type=type_filter, filter_q=filter_q
     )
-
-    # Plot the time-domain graph of the dynamically filtered signal
-    t_filtered_signal = np.arange(len(filtered_signal_lfo_adsr)) / SAMPLE_RATE
-    fig, ax = plt.subplots()
-    ax.plot(t_filtered_signal[:10000], filtered_signal_lfo_adsr[:10000], color='orange')
-    ax.set_title("Preview of Dynamically Filtered Signal with LFO and ADSR (First Note)")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Amplitude")
-    ax.legend()
-    st.pyplot(fig)
     
     # Display the spectrogram of the filtered signal
     fig, ax = plt.subplots()
@@ -469,6 +442,16 @@ with col8:
     ax.set_ylabel("Frequency (Hz)")
     ax.set_ylim([0, 4000])
     fig.colorbar(im, ax=ax, label="Amplitude (dB)")
+    st.pyplot(fig)
+    
+    # Plot the time-domain graph of the dynamically filtered signal
+    t_filtered_signal = np.arange(len(filtered_signal_lfo_adsr)) / SAMPLE_RATE
+    fig, ax = plt.subplots()
+    ax.plot(t_filtered_signal[:10000], filtered_signal_lfo_adsr[:10000], color='orange')
+    ax.set_title("Preview of Dynamically Filtered Signal with LFO and ADSR (First Note)")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Amplitude")
+    ax.legend()
     st.pyplot(fig)
 
 st.audio(numpy_to_wav(filtered_signal_lfo_adsr), format="audio/wav", start_time=0)
