@@ -489,10 +489,7 @@ st.audio(numpy_to_wav(adsr_signal_audio), format="audio/wav", start_time=0)
 # Echo Section
 centered_subheader_with_help(
     "🔊 Echo Effect", 
-    "Add an echo effect to the signal.\n\n"
     "This function adds an echo effect to the input signal.\n"
-    "- `delay` : Echo delay time in seconds.\n"
-    "- `decay` : Echo attenuation (multiplicative factor).\n\n"
     "The echo signal is added to the original signal with a time offset."
 )
 col11, col12 = st.columns(2)
@@ -531,10 +528,7 @@ st.audio(numpy_to_wav(echo_signal), format="audio/wav", start_time=0)
 # Flanger Section
 centered_subheader_with_help(
     "🔄 Flanger Effect", 
-    "Add a flanger effect to the signal.\n\n"
     "This function adds a flanger effect to the input signal.\n"
-    "- `frequency` : LFO frequency (low-frequency oscillator) in Hertz.\n"
-    "- `depth` : Maximum delay depth in seconds.\n\n"
     "The flanger uses an LFO to dynamically modulate the time delay "
     "applied to the signal, creating a sweeping effect."
 )
