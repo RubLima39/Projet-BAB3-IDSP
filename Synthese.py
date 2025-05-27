@@ -190,14 +190,7 @@ def apply_flanger(signal, rate, depth):
 
     return flanged_signal
 
-# Function to apply all transformations
-def apply_transformations(signal, lfo_rate, lfo_depth, lfo_wave_type, combined_cutoff, filter_type, filter_q, attack, decay, sustain, release, echo_delay, echo_decay, flanger_rate, flanger_depth):
-    lfo_signal = apply_lfo(signal, lfo_rate, lfo_depth, lfo_wave_type)
-    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, combined_cutoff, filter_type, filter_q)
-    adsr_signal = apply_adsr(filtered_signal, attack, decay, sustain, release)
-    echo_signal = apply_echo(adsr_signal, echo_delay, echo_decay)
-    flanger_signal = apply_flanger(echo_signal, flanger_rate, flanger_depth)
-    return flanger_signal
+# Remove apply_transformations function
 
 # Function to create centered subheaders with expandable descriptions
 def centered_subheader_with_help(title, help_text):
@@ -211,7 +204,7 @@ st.title("🎛️ Subtractive Synthesizer")
 st.info("Adjust the parameters and click 'Play Sound' to listen to your sound creation.")
 
 # Frequencies and durations of notes for the beginning of "Für Elise"
-fur_elise_frequencies = [659.25,622.25,659.25,622.25,659.25,493.88,587.33,523.25,440.0,261.63,329.63,440.0,493.88,329.63,415.3,493.88,523.25,220.0,329.63,164.81,329.63,415.30,220.0,329.63,440,0]
+fur_elise_frequencies = [659.25,622.25,659.25,622.25,659.25,493.88,587.33,523.25,440.0,261.63,329.63,440.0,493.88,329.63,415.3,493.88,523.25,220.0,329.63,164.81,329.63,415.30,220.0,329.63,440.0]
 fur_elise_durations = [0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.6,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2]
 fur_elise_start_times = [0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.4,1.6,2.2,2.4,2.6,2.8,3.4,3.6,3.8,4.0,1.6,1.8,2.8,3.0,3.2,4.0,4.2,4.4]
 
@@ -567,27 +560,19 @@ for freq, dur, start in zip(frequencies, durations, start_times):
     # Apply transformations to the note (except echo)
     note_cutoff = apply_combined_adsr_lfo_to_cutoff(
         cutoff, filter_lfo_rate, filter_lfo_depth, filter_lfo_wave_type,
-        filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, dur
-    )
-    transformed_note = apply_transformations(
-        note_signal, lfo_rate, lfo_depth, lfo_wave_type, note_cutoff,
-        type_filter, filter_q, attack, decay, sustain, release,
-        0, 0,  # No echo here
-        flanger_rate, flanger_depth
-    )
+        filter_adsr_attack, filter_adsr_decay, filter_adsr_sustain, filter_adsr_release, dur)
 
-    # Place the transformed note in the melody
+    lfo_signal = apply_lfo(note_signal, lfo_rate, lfo_depth, lfo_wave_type)
+    filtered_signal = apply_dynamic_biquad_filter(lfo_signal, note_cutoff, type_filter, filter_q)
+    adsr_signal = apply_adsr(filtered_signal, attack, decay, sustain, release)
+    transformed_note = apply_flanger(adsr_signal, flanger_rate, flanger_depth)
+
+    # Calculate the start sample for the note
     start_sample = int(SAMPLE_RATE * start)
-    end_sample = start_sample + len(transformed_note)
-    if end_sample > len(melody_signal):
-        # Extend melody_signal if needed
-        melody_signal = np.pad(melody_signal, (0, end_sample - len(melody_signal)))
-    melody_signal[start_sample:end_sample] += transformed_note
 
     # Apply echo to the transformed note
     note_with_echo = apply_echo(transformed_note, echo_delay, echo_decay)
     echo_start_sample = start_sample
-    echo_end_sample = echo_start_sample + len(note_with_echo)
     all_echoes.append((echo_start_sample, note_with_echo))
 
 # Find the required length for the melody including all echoes
