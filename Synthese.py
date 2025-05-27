@@ -378,6 +378,18 @@ with col6:
     ax.legend()
     st.pyplot(fig)
 
+    # Compute and display the Fourier transform for the first note
+    fft_waveform = np.fft.fft(filtered_signal_static)
+    fft_freqs = np.fft.fftfreq(len(fft_waveform), 1 / SAMPLE_RATE)
+    fig, ax = plt.subplots()
+    ax.plot(fft_freqs[:len(fft_freqs)//2], 20 * np.log10(np.abs(fft_waveform)[:len(fft_waveform)//2]), color='purple', label="FFT")
+    ax.set_xlim([0, 4000])
+    ax.set_title("Fourier Transform (First Note)")
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Amplitude (dB)")
+    ax.legend()
+    st.pyplot(fig)
+
 st.audio(numpy_to_wav(filtered_signal_static), format="audio/wav", start_time=0)
 
 # Compute the minimum note duration
