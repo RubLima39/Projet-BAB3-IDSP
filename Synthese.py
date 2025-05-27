@@ -436,7 +436,7 @@ with col8:
     # Plot the time-domain graph of the dynamically filtered signal
     t_filtered_signal = np.arange(len(filtered_signal_lfo_adsr)) / SAMPLE_RATE
     fig, ax = plt.subplots()
-    ax.plot(t_filtered_signal[:10000], filtered_signal_lfo_adsr[:10000], color='orange')
+    ax.plot(t_filtered_signal[1000:10000], filtered_signal_lfo_adsr[1000:10000], color='orange')
     ax.set_title("Preview of Dynamically Filtered Signal with LFO and ADSR (First Note)")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
