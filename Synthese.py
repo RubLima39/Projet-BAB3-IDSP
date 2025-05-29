@@ -6,7 +6,7 @@ import scipy.io.wavfile as wav
 import io
 
 # Global sampling rate
-SAMPLE_RATE = 11025
+SAMPLE_RATE = 22050
 
 # Function to generate waveforms with overlapping
 def generate_waveform(wave_type, frequencies, durations, start_times):
