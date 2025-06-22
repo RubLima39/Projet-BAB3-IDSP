@@ -281,7 +281,7 @@ biquad_filter = """
     """
 
 # VCO Section
-centered_subheader_with_help("🎚️ Voltage-Controlled Oscillator (VCO)", "The voltage-controlled oscillator (VCO) generates basic waveforms. Default melody: "Für Elise". )
+centered_subheader_with_help("🎚️ Voltage-Controlled Oscillator (VCO)", "The voltage-controlled oscillator (VCO) generates a melody of basic waveforms (default melody: 'Für Elise' from Beethoven).")
 col1, col2 = st.columns(2)
 with col1:
     wave_type = st.selectbox("Wave Type", ["Square", "Triangle", "Sawtooth", "Sine"], help="Select the type of waveform to generate.")
