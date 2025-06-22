@@ -201,7 +201,7 @@ def centered_subheader_with_help(title, help_text):
 
 # Streamlit Application
 st.title("🎛️ Subtractive Synthesizer")
-st.info("Adjust the parameters and click 'Play Sound' to listen to your sound creation.")
+st.info("Adjust the parameters and click 'Play Complete Melody' (at the bottom) to listen to your sound creation.")
 
 # Frequencies and durations of notes for the beginning of "Für Elise"
 fur_elise_frequencies = [659.25,622.25,659.25,622.25,659.25,493.88,587.33,523.25,440.0,261.63,329.63,440.0,493.88,329.63,415.3,493.88,523.25,220.0,329.63,164.81,329.63,415.30,220.0,329.63,440.0]
